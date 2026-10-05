@@ -29,6 +29,12 @@ export function Studio() {
         </div>
       </header>
 
+      {!DEMO && !(user.user_metadata && user.user_metadata.has_pin) && (
+        <div className="notice">
+          <strong>Set your sign-in PIN.</strong> Choose a 6-digit PIN below. Next time, sign in with your email and PIN instead of waiting for an email.
+        </div>
+      )}
+
       {DEMO && (
         <div className="notice">
           <strong>Demo mode.</strong> Posts and films save in this browser only, and uploaded movies play until the page reloads. Follow the README to connect Supabase and go live.
@@ -91,8 +97,46 @@ export function Studio() {
             <p className="hint">Shown on journal entries and in Backlot. Signed in as {user.email}.</p>
           </section>
         )}
+
+        {!DEMO && <PinCard user={user} />}
       </div>
     </main>
+  );
+}
+
+function PinCard({ user }) {
+  const has = !!(user.user_metadata && user.user_metadata.has_pin);
+  const [pin, setPin] = useState("");
+  const [pin2, setPin2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
+  const clean = (v) => v.replace(/\D/g, "").slice(0, 6);
+  const save = async (e) => {
+    e.preventDefault(); setError(null);
+    if (!/^\d{6}$/.test(pin)) return setError(new Error("Use exactly 6 numbers."));
+    if (/^(\d)\1{5}$/.test(pin) || "0123456789".includes(pin) || "9876543210".includes(pin)) return setError(new Error("Pick something harder to guess than repeated or sequential numbers."));
+    if (pin !== pin2) return setError(new Error("The two PINs don't match."));
+    setBusy(true);
+    try { await api.setPin(pin); setDone(true); setPin(""); setPin2(""); toast("PIN saved."); }
+    catch (err) { setError(err); }
+    setBusy(false);
+  };
+  return (
+    <section className="card">
+      <div className="card-head"><h2>Sign-in PIN</h2>{(has || done) && <span className="pill live">Set</span>}</div>
+      <form className="fm" onSubmit={save}>
+        <div className="two">
+          <div><label htmlFor="pin1">{has || done ? "New 6-digit PIN" : "Choose a 6-digit PIN"}</label>
+            <input id="pin1" className="input pin-input" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} value={pin} onChange={(e) => setPin(clean(e.target.value))} placeholder="••••••" /></div>
+          <div><label htmlFor="pin2">Type it again</label>
+            <input id="pin2" className="input pin-input" type="password" inputMode="numeric" autoComplete="new-password" maxLength={6} value={pin2} onChange={(e) => setPin2(clean(e.target.value))} placeholder="••••••" /></div>
+        </div>
+        <ErrorNote error={error} />
+        <button className="btn gold" disabled={busy || pin.length !== 6 || pin2.length !== 6} style={{ justifySelf: "start" }}>{busy ? "Saving…" : has || done ? "Change PIN" : "Save PIN"}</button>
+      </form>
+      <p className="hint">Sign in with {user.email} and this PIN. If you forget it, use "Email me a link" on the sign-in page, then set a new one here.</p>
+    </section>
   );
 }
 

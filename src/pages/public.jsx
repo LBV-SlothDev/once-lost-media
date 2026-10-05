@@ -164,14 +164,19 @@ export function Post({ slug }) {
 export function Login() {
   const { user } = useAuth();
   const { navigate } = useRouter();
-  const [email, setEmail] = useState(() => { try { return localStorage.getItem("olm.lastEmail") || ""; } catch { return ""; } });
+  const read = () => { try { return localStorage.getItem("olm.lastEmail") || ""; } catch { return ""; } };
+  const [remembered, setRemembered] = useState(read);
+  const [email, setEmail] = useState(read);
+  const [pin, setPin] = useState("");
+  const [mode, setMode] = useState(() => (read() ? "pin" : "link"));
   const [state, setState] = useState({ busy: false, sent: false, error: null });
-  const remembered = (() => { try { return localStorage.getItem("olm.lastEmail") || ""; } catch { return ""; } })();
   useEffect(() => { if (user) navigate("/studio", { replace: true }); }, [user, navigate]);
-  const submit = async (e) => {
-    e.preventDefault();
+  const remember = (v) => { try { localStorage.setItem("olm.lastEmail", v); } catch {} };
+
+  const sendLink = async (e) => {
+    e && e.preventDefault();
     setState({ busy: true, sent: false, error: null });
-    try { localStorage.setItem("olm.lastEmail", email.trim()); } catch {}
+    remember(email.trim());
     try {
       const r = await api.signIn(email.trim());
       setState({ busy: false, sent: !(r && r.instant), error: null });
@@ -179,6 +184,16 @@ export function Login() {
       setState({ busy: false, sent: false, error });
     }
   };
+  const pinIn = async (e) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(pin)) { setState({ busy: false, sent: false, error: new Error("Your PIN is 6 numbers.") }); return; }
+    setState({ busy: true, sent: false, error: null });
+    remember(email.trim());
+    try { await api.signInWithPin(email.trim(), pin); setState({ busy: false, sent: false, error: null }); }
+    catch (error) { setPin(""); setState({ busy: false, sent: false, error }); }
+  };
+  const forget = () => { setEmail(""); setPin(""); setRemembered(""); setMode("link"); try { localStorage.removeItem("olm.lastEmail"); } catch {} };
+
   return (
     <main className="page narrow">
       <header className="page-head">
@@ -186,15 +201,35 @@ export function Login() {
         <h1>Sign in to the Studio</h1>
       </header>
       {state.sent ? (
-        <div className="card"><p>Check <strong>{email}</strong> for a sign-in link. It opens the Studio in this browser.</p></div>
-      ) : (
-        <form className="card fm" onSubmit={submit}>
+        <div className="card fm">
+          <p style={{ margin: 0 }}>Check <strong>{email}</strong> for a sign-in link. It opens the Studio in this browser.</p>
+          <p className="hint">After you're in, set a 6-digit PIN in the Studio. Next time you can sign in with your email and PIN, with no email needed.</p>
+          <button className="linkish" style={{ justifySelf: "start" }} onClick={() => setState({ busy: false, sent: false, error: null })}>Back</button>
+        </div>
+      ) : mode === "pin" ? (
+        <form className="card fm" onSubmit={pinIn}>
+          {remembered && email === remembered && <p className="hint">Welcome back.</p>}
           <label htmlFor="login-email">Work email</label>
-          {remembered && email === remembered && <p className="hint">Welcome back. Your email is filled in, so just send the link.</p>}
-          <input id="login-email" className="input" type="email" required autoComplete="email" autoFocus={!remembered} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@oncelostmedia.com" />
+          <input id="login-email" className="input" type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@oncelostmedia.com" />
+          <label htmlFor="login-pin">6-digit PIN</label>
+          <input id="login-pin" className="input pin-input" type="password" inputMode="numeric" autoComplete="current-password" pattern="\d{6}" maxLength={6} required autoFocus={!!email}
+            value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="••••••" />
           <ErrorNote error={state.error} />
-          {remembered && email === remembered && <button type="button" className="linkish" style={{ justifySelf: "start" }} onClick={() => { setEmail(""); try { localStorage.removeItem("olm.lastEmail"); } catch {} }}>Not you? Use a different email</button>}
+          <button className="btn gold" disabled={state.busy || pin.length !== 6}>{state.busy ? "Signing in…" : "Sign in"}</button>
+          <div className="login-alt">
+            <button type="button" className="linkish" onClick={() => { setMode("link"); setState({ busy: false, sent: false, error: null }); }}>Forgot your PIN or first time here? Email me a link</button>
+            {remembered && <button type="button" className="linkish" onClick={forget}>Not you? Use a different email</button>}
+          </div>
+        </form>
+      ) : (
+        <form className="card fm" onSubmit={sendLink}>
+          <label htmlFor="login-email">Work email</label>
+          <input id="login-email" className="input" type="email" required autoComplete="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@oncelostmedia.com" />
+          <ErrorNote error={state.error} />
           <button className="btn gold" disabled={state.busy}>{state.busy ? "Sending…" : DEMO ? "Enter the Studio (demo)" : "Email me a sign-in link"}</button>
+          <div className="login-alt">
+            <button type="button" className="linkish" onClick={() => { setMode("pin"); setState({ busy: false, sent: false, error: null }); }}>Already set a PIN? Sign in with it</button>
+          </div>
           <p className="hint">{DEMO ? "Demo mode: any email works and nothing leaves this browser." : "Only people the site owner has invited can sign in."}</p>
         </form>
       )}

@@ -98,7 +98,25 @@ const supa = {
   async signIn(email) {
     const c = await sb();
     const { error } = await c.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: window.location.origin + "/studio" } });
-    if (error) throw friendly(error.status === 422 || /signups not allowed|not found/i.test(error.message) ? { message: "That email isn't on the Once Lost Media team. Ask the site owner to invite you." } : error);
+    if (error) {
+      if (error.status === 429 || /rate limit/i.test(error.message)) throw friendly({ message: "Too many sign-in emails have been sent. Wait about an hour, or sign in with your PIN." });
+      throw friendly(error.status === 422 || /signups not allowed|not found/i.test(error.message) ? { message: "That email isn't on the Once Lost Media team. Ask the site owner to invite you." } : error);
+    }
+  },
+  /* After the first emailed link, team members sign in with their email and a 6-digit PIN. */
+  async signInWithPin(email, pin) {
+    const c = await sb();
+    const { error } = await c.auth.signInWithPassword({ email, password: pin });
+    if (error) {
+      if (error.status === 429 || /rate limit|too many/i.test(error.message)) throw friendly({ message: "Too many tries. Wait a few minutes and try again." });
+      if (/email not confirmed/i.test(error.message)) throw friendly({ message: "Use the emailed sign-in link once first, then set your PIN in the Studio." });
+      throw friendly({ message: "That email and PIN don't match. Try again, or email yourself a sign-in link." });
+    }
+  },
+  async setPin(pin) {
+    const c = await sb();
+    const { error } = await c.auth.updateUser({ password: pin, data: { has_pin: true } });
+    if (error) throw friendly(/reauthentication|nonce/i.test(error.message) ? { message: "For security, sign in again with an email link, then set your PIN." } : error);
   },
   async signOut() {
     const c = await sb();
@@ -339,6 +357,8 @@ const demo = {
     authSubs.add(cb);
     return () => authSubs.delete(cb);
   },
+  async signInWithPin(email) { return demo.signIn(email); },
+  async setPin() {},
   async signIn(email) {
     const u = { id: "demo-" + slugify(email), email };
     try { sessionStorage.setItem("olm.demo.user", JSON.stringify(u)); } catch {}

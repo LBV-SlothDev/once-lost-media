@@ -302,3 +302,5 @@ textarea.input { resize: vertical; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .strip-track { animation: none; }
 }
+.pin-input { font-size: 22px; letter-spacing: .5em; text-align: center; font-variant-numeric: tabular-nums; }
+.login-alt { display: grid; gap: 6px; justify-items: start; margin-top: 4px; }
