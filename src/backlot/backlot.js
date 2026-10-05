@@ -1,6 +1,6 @@
 import "./backlot.css";
 
-const MARKUP = "<div class=\"bar\">\n  <div class=\"bar-in\">\n    <div class=\"brand\"><i aria-hidden=\"true\"></i>BACKLOT</div>\n    <input id=\"ptitle\" class=\"ptitle\" placeholder=\"Untitled project\" aria-label=\"Project title\">\n    <div class=\"tabs\" role=\"tablist\">\n      <button class=\"tab\" role=\"tab\" data-view=\"script\" aria-selected=\"true\">Script</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"board\" aria-selected=\"false\">Storyboard</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"calls\" aria-selected=\"false\">Call sheets</button>\n    </div>\n    <div class=\"spacer\"></div>\n    <div class=\"people\" id=\"people\" aria-label=\"People here now\"></div>\n    <div class=\"status\" id=\"status\"><span class=\"dot\"></span><span id=\"statusTxt\">Connecting\u2026</span></div>\n  </div>\n</div>\n<div class=\"banner\" id=\"banner\" hidden></div>\n\n<main>\n  <!-- SCRIPT -->\n  <section class=\"view\" id=\"v-script\">\n    <div class=\"script\">\n      <aside class=\"nav\">\n        <div class=\"nav-h\"><span class=\"eyebrow\">Scenes</span><button class=\"btn ghost\" id=\"addScene\" title=\"Add a scene at the end\">+ Scene</button></div>\n        <div class=\"stats\" id=\"stats\"></div>\n        <ol id=\"navList\"></ol>\n      </aside>\n      <div style=\"min-width:0\">\n        <div class=\"tools\">\n          <div class=\"types\" id=\"types\"></div>\n          <select class=\"field\" id=\"rev\" style=\"width:auto\" aria-label=\"Revision color\"></select>\n          <button class=\"btn\" id=\"importBtn\">Import</button>\n          <button class=\"btn\" id=\"exportBtn\">Export .fountain</button>\n          <input type=\"file\" id=\"importFile\" accept=\".fountain,.txt,.md,text/plain\" hidden>\n        </div>\n        <p class=\"hint\" style=\"margin:-4px 0 12px\">Enter starts the next element \u00b7 Tab changes element type \u00b7 paste or import a Fountain script to bring in existing pages.</p>\n        <div class=\"page-wrap\">\n          <div class=\"page\" id=\"page\">\n            <div class=\"revband\"></div><div class=\"revlabel\" id=\"revlabel\"></div>\n            <div id=\"scenes\"></div>\n            <div class=\"empty\" id=\"scriptEmpty\" hidden>\n              <h2>FADE IN:</h2>\n              <p style=\"margin:0\">The script is empty. Start the first scene, or load a short sample to see how formatting works.</p>\n              <div class=\"row\"><button class=\"btn primary\" id=\"startScript\">Start writing</button><button class=\"btn\" id=\"sampleScript\">Load sample pages</button></div>\n            </div>\n          </div>\n        </div>\n      </div>\n    </div>\n  </section>\n\n  <!-- STORYBOARD -->\n  <section class=\"view\" id=\"v-board\" hidden>\n    <div class=\"sb-tools\">\n      <select class=\"field\" id=\"sbFilter\" aria-label=\"Show scene\"></select>\n      <span class=\"hint\" id=\"sbCount\"></span>\n      <div class=\"spacer\"></div>\n    </div>\n    <div id=\"sbBody\"></div>\n  </section>\n\n  <!-- CALL SHEETS -->\n  <section class=\"view\" id=\"v-calls\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <div class=\"days\" id=\"days\"></div>\n        <button class=\"btn primary\" id=\"newSheet\" style=\"width:100%;justify-content:center;margin-top:8px\">+ New shoot day</button>\n      </aside>\n      <div id=\"sheetWrap\" style=\"min-width:0\"></div>\n    </div>\n  </section>\n</main>\n\n<!-- panel editor -->\n<div class=\"ov\" id=\"pov\" hidden>\n  <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"pTitle\">\n    <div class=\"mhead\"><h2 id=\"pTitle\">Shot</h2><button class=\"x\" id=\"pClose\" aria-label=\"Close\">\u2715</button></div>\n    <div class=\"ed\">\n      <div>\n        <div class=\"canvas-box\"><canvas id=\"cv\" width=\"960\" height=\"540\"></canvas><div class=\"thirds\" id=\"thirds\" hidden></div></div>\n        <div class=\"ctools\">\n          <button class=\"btn on\" data-tool=\"pen\">Pencil</button>\n          <button class=\"btn\" data-tool=\"marker\">Marker</button>\n          <button class=\"btn\" data-tool=\"eraser\">Eraser</button>\n          <select class=\"field\" id=\"pSize\" style=\"width:auto\" aria-label=\"Brush size\"><option value=\"2\">Fine</option><option value=\"4\" selected>Medium</option><option value=\"9\">Bold</option><option value=\"20\">Wide</option></select>\n          <button class=\"btn\" id=\"pUndo\">Undo</button>\n          <button class=\"btn\" id=\"pClear\">Clear</button>\n          <button class=\"btn\" id=\"pThirds\">Thirds</button>\n          <button class=\"btn\" id=\"pUpload\">Upload image</button>\n          <input type=\"file\" id=\"pFile\" accept=\"image/*\" hidden>\n        </div>\n      </div>\n      <div class=\"form\">\n        <label class=\"full\">Scene<select class=\"field\" id=\"pScene\"></select></label>\n        <label>Shot size<select class=\"field\" id=\"pShot\"></select></label>\n        <label>Angle<select class=\"field\" id=\"pAngle\"></select></label>\n        <label>Movement<select class=\"field\" id=\"pMove\"></select></label>\n        <label>Lens (mm)<input class=\"field\" id=\"pLens\" inputmode=\"numeric\" placeholder=\"35\"></label>\n        <label>Duration (sec)<input class=\"field\" id=\"pDur\" inputmode=\"decimal\" placeholder=\"4\"></label>\n        <label>Setup<input class=\"field\" id=\"pSetup\" placeholder=\"A cam\"></label>\n        <label class=\"full\">Action / description<textarea class=\"field\" id=\"pDesc\" rows=\"3\" placeholder=\"What happens in frame\"></textarea></label>\n        <label class=\"full\">Dialogue / sound<textarea class=\"field\" id=\"pAudio\" rows=\"2\" placeholder=\"Lines or SFX over this shot\"></textarea></label>\n      </div>\n    </div>\n    <div class=\"mfoot\">\n      <button class=\"btn danger\" id=\"pDelete\">Delete shot</button>\n      <div style=\"display:flex;gap:8px\"><button class=\"btn\" id=\"pCancel\">Cancel</button><button class=\"btn primary\" id=\"pSave\">Save shot</button></div>\n    </div>\n  </div>\n</div>\n\n<!-- confirm -->\n<div class=\"ov\" id=\"cov\" hidden>\n  <div class=\"modal sm\" role=\"alertdialog\" aria-modal=\"true\">\n    <p id=\"cMsg\" style=\"margin:4px 0 16px;font-size:15px\"></p>\n    <div class=\"mfoot\" style=\"justify-content:flex-end\"><button class=\"btn\" id=\"cNo\">Cancel</button><button class=\"btn primary\" id=\"cYes\">Delete</button></div>\n  </div>\n</div>\n<div class=\"toast\" id=\"toast\" hidden></div>";
+const MARKUP = "<div class=\"bar\">\n  <div class=\"bar-in\">\n    <div class=\"brand\"><i aria-hidden=\"true\"></i>BACKLOT</div>\n    <input id=\"ptitle\" class=\"ptitle\" placeholder=\"Untitled project\" aria-label=\"Project title\">\n    <div class=\"tabs\" role=\"tablist\">\n      <button class=\"tab\" role=\"tab\" data-view=\"script\" aria-selected=\"true\">Script</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"board\" aria-selected=\"false\">Storyboard</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"calls\" aria-selected=\"false\">Call sheets</button>\n    </div>\n    <div class=\"spacer\"></div>\n    <div class=\"people\" id=\"people\" aria-label=\"People here now\"></div>\n    <div class=\"status\" id=\"status\"><span class=\"dot\"></span><span id=\"statusTxt\">Connecting\u2026</span></div>\n  </div>\n</div>\n<div class=\"banner\" id=\"banner\" hidden></div>\n\n<main>\n  <!-- SCRIPT -->\n  <section class=\"view\" id=\"v-script\">\n    <div class=\"script\">\n      <aside class=\"nav\">\n        <div class=\"nav-h\"><span class=\"eyebrow\">Scenes</span><button class=\"btn ghost\" id=\"addScene\" title=\"Add a scene at the end\">+ Scene</button></div>\n        <div class=\"stats\" id=\"stats\"></div>\n        <ol id=\"navList\"></ol>\n      </aside>\n      <div style=\"min-width:0\">\n        <div class=\"tools\">\n          <div class=\"types\" id=\"types\"></div>\n          <select class=\"field\" id=\"rev\" style=\"width:auto\" aria-label=\"Revision color\"></select>\n          <button class=\"btn\" id=\"importBtn\">Import</button>\n          <button class=\"btn\" id=\"pdfBtn\">Print / PDF</button>\n          <button class=\"btn\" id=\"historyBtn\">History</button>\n          <button class=\"btn\" id=\"exportBtn\">Export .fountain</button>\n          <input type=\"file\" id=\"importFile\" accept=\".fountain,.txt,.md,text/plain\" hidden>\n        </div>\n        <p class=\"hint\" style=\"margin:-4px 0 12px\">Enter starts the next element \u00b7 Tab changes element type \u00b7 paste or import a Fountain script to bring in existing pages.</p>\n        <div class=\"page-wrap\">\n          <div class=\"page\" id=\"page\">\n            <div class=\"revband\"></div><div class=\"revlabel\" id=\"revlabel\"></div>\n            <div id=\"scenes\"></div>\n            <div class=\"empty\" id=\"scriptEmpty\" hidden>\n              <h2>FADE IN:</h2>\n              <p style=\"margin:0\">The script is empty. Start the first scene, or load a short sample to see how formatting works.</p>\n              <div class=\"row\"><button class=\"btn primary\" id=\"startScript\">Start writing</button><button class=\"btn\" id=\"sampleScript\">Load sample pages</button></div>\n            </div>\n          </div>\n        </div>\n      </div>\n    </div>\n  </section>\n\n  <!-- STORYBOARD -->\n  <section class=\"view\" id=\"v-board\" hidden>\n    <div class=\"sb-tools\">\n      <select class=\"field\" id=\"sbFilter\" aria-label=\"Show scene\"></select>\n      <span class=\"hint\" id=\"sbCount\"></span>\n      <div class=\"spacer\"></div>\n    </div>\n    <div id=\"sbBody\"></div>\n  </section>\n\n  <!-- CALL SHEETS -->\n  <section class=\"view\" id=\"v-calls\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <div class=\"days\" id=\"days\"></div>\n        <button class=\"btn primary\" id=\"newSheet\" style=\"width:100%;justify-content:center;margin-top:8px\">+ New shoot day</button>\n      </aside>\n      <div id=\"sheetWrap\" style=\"min-width:0\"></div>\n    </div>\n  </section>\n</main>\n\n<!-- panel editor -->\n<div class=\"ov\" id=\"pov\" hidden>\n  <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"pTitle\">\n    <div class=\"mhead\"><h2 id=\"pTitle\">Shot</h2><button class=\"x\" id=\"pClose\" aria-label=\"Close\">\u2715</button></div>\n    <div class=\"ed\">\n      <div>\n        <div class=\"canvas-box\"><canvas id=\"cv\" width=\"960\" height=\"540\"></canvas><div class=\"thirds\" id=\"thirds\" hidden></div></div>\n        <div class=\"ctools\">\n          <button class=\"btn on\" data-tool=\"pen\">Pencil</button>\n          <button class=\"btn\" data-tool=\"marker\">Marker</button>\n          <button class=\"btn\" data-tool=\"eraser\">Eraser</button>\n          <select class=\"field\" id=\"pSize\" style=\"width:auto\" aria-label=\"Brush size\"><option value=\"2\">Fine</option><option value=\"4\" selected>Medium</option><option value=\"9\">Bold</option><option value=\"20\">Wide</option></select>\n          <button class=\"btn\" id=\"pUndo\">Undo</button>\n          <button class=\"btn\" id=\"pClear\">Clear</button>\n          <button class=\"btn\" id=\"pThirds\">Thirds</button>\n          <button class=\"btn\" id=\"pUpload\">Upload image</button>\n          <input type=\"file\" id=\"pFile\" accept=\"image/*\" hidden>\n        </div>\n      </div>\n      <div class=\"form\">\n        <label class=\"full\">Scene<select class=\"field\" id=\"pScene\"></select></label>\n        <label>Shot size<select class=\"field\" id=\"pShot\"></select></label>\n        <label>Angle<select class=\"field\" id=\"pAngle\"></select></label>\n        <label>Movement<select class=\"field\" id=\"pMove\"></select></label>\n        <label>Lens (mm)<input class=\"field\" id=\"pLens\" inputmode=\"numeric\" placeholder=\"35\"></label>\n        <label>Duration (sec)<input class=\"field\" id=\"pDur\" inputmode=\"decimal\" placeholder=\"4\"></label>\n        <label>Setup<input class=\"field\" id=\"pSetup\" placeholder=\"A cam\"></label>\n        <label class=\"full\">Action / description<textarea class=\"field\" id=\"pDesc\" rows=\"3\" placeholder=\"What happens in frame\"></textarea></label>\n        <label class=\"full\">Dialogue / sound<textarea class=\"field\" id=\"pAudio\" rows=\"2\" placeholder=\"Lines or SFX over this shot\"></textarea></label>\n      </div>\n    </div>\n    <div class=\"mfoot\">\n      <button class=\"btn danger\" id=\"pDelete\">Delete shot</button>\n      <div style=\"display:flex;gap:8px\"><button class=\"btn\" id=\"pCancel\">Cancel</button><button class=\"btn primary\" id=\"pSave\">Save shot</button></div>\n    </div>\n  </div>\n</div>\n\n<!-- confirm -->\n<div class=\"ov\" id=\"cov\" hidden>\n  <div class=\"modal sm\" role=\"alertdialog\" aria-modal=\"true\">\n    <p id=\"cMsg\" style=\"margin:4px 0 16px;font-size:15px\"></p>\n    <div class=\"mfoot\" style=\"justify-content:flex-end\"><button class=\"btn\" id=\"cNo\">Cancel</button><button class=\"btn primary\" id=\"cYes\">Delete</button></div>\n  </div>\n</div>\n<div class=\"toast\" id=\"toast\" hidden></div>";
 
 const downloads = {
   async save({ filename, data }) {
@@ -46,7 +46,8 @@ const S = {
   db:null, user:null, room:null, dl:null, myId:null, canWrite:true,
   scenes:[], map:{}, panels:[], sheets:[], meta:{}, actors:{},
   view:"script", curSheet:null, focus:{scene:null,i:0}, peers:[], profiles:{},
-  dirty:new Set(), inflight:{}, timers:{}, pending:0, offline:false, sheetStale:false
+  dirty:new Set(), inflight:{}, timers:{}, pending:0, offline:false, sheetStale:false,
+  editingSince:0, lastVersionAt:0, changedSinceVersion:false, migrated:false
 };
 
 /* ---------- utilities ---------- */
@@ -159,6 +160,7 @@ function flushScene(id){
   const body={order:sc.order, blocks:sc.blocks.map(b=>({t:b.t,x:b.x})), by:S.myId||null, at:Date.now()};
   write("scenes/"+id, r=>r.set(body));
   if(!S.db) setStatus();
+  S.changedSinceVersion=true; maybeAutoVersion();
 }
 function busy(id){ return S.dirty.has(id) || (S.inflight["scenes/"+id]||0)>0; }
 
@@ -180,16 +182,17 @@ function onScenes(snap){
 
 /* ---------- script rendering ---------- */
 const PO = (()=>{ const t=document.createElement("div"); try{ t.contentEditable="plaintext-only"; }catch(e){} return t.contentEditable==="plaintext-only"; })();
+let lockSceneId=null;
 function blockEl(b,i){
   const d=document.createElement("div");
   d.className="blk t-"+b.t; d.dataset.i=i; d.dataset.ph=LABEL[b.t];
-  d.textContent=b.x; d.contentEditable=S.canWrite?(PO?"plaintext-only":"true"):"false"; d.spellcheck=true;
+  d.textContent=b.x; d.contentEditable=editableFor(lockSceneId)?(PO?"plaintext-only":"true"):"false"; d.spellcheck=true;
   return d;
 }
 function fillSection(sec, sc){
   sec.innerHTML='<span class="snum l"></span><span class="snum r"></span><span class="here"></span>';
-  sc.blocks.forEach((b,i)=>sec.appendChild(blockEl(b,i)));
-  sec._sig=JSON.stringify(sc.blocks); sec._stale=false;
+  lockSceneId=sc.id; sc.blocks.forEach((b,i)=>sec.appendChild(blockEl(b,i))); lockSceneId=null;
+  sec._sig=JSON.stringify(sc.blocks); sec._stale=false; sec.classList.toggle("locked",!!lockOwner(sc.id));
 }
 function renderScript(){
   const box=$("#scenes");
@@ -213,14 +216,32 @@ function renderNav(){
   $("#stats").innerHTML=`<span><b>${S.scenes.length}</b> scenes</span><span><b>${eighthsStr(tot)}</b> pages</span><span><b>${words.toLocaleString()}</b> words</span>`;
   ol.innerHTML=S.scenes.map((sc,k)=>{
     const dots=S.peers.filter(p=>!p.isMe&&p.presence&&p.presence.scene===sc.id).map(p=>`<span style="background:${esc(prof(p.by).color)}" title="${esc(prof(p.by).name||"Someone")}"></span>`).join("");
-    return `<li data-id="${sc.id}" class="${S.focus.scene===sc.id?"cur":""}"><span class="n">${k+1}</span><button class="h" data-go="${sc.id}" title="${esc(heading(sc))}">${esc(heading(sc)||"Untitled scene")}<span class="pdots">${dots}</span></button><span class="e">${eighthsStr(eighths(sc))}</span>${S.canWrite?`<span class="acts"><button data-up="${sc.id}" aria-label="Move scene up">↑</button><button data-down="${sc.id}" aria-label="Move scene down">↓</button><button data-del="${sc.id}">Delete</button></span>`:""}</li>`;
+    return `<li data-id="${sc.id}" class="${S.focus.scene===sc.id?"cur":""}"><span class="n">${k+1}</span><button class="h" data-go="${sc.id}" title="${esc(heading(sc))}">${esc(heading(sc)||"Untitled scene")}<span class="pdots">${dots}</span>${lockOwner(sc.id)?' <span class="lockico" title="Being edited">🔒</span>':''}</button><span class="e">${eighthsStr(eighths(sc))}</span>${S.canWrite?`<span class="acts"><button data-up="${sc.id}" aria-label="Move scene up">↑</button><button data-down="${sc.id}" aria-label="Move scene down">↓</button><button data-del="${sc.id}">Delete</button></span>`:""}</li>`;
   }).join("");
 }
+/* One writer per scene: whoever started editing a scene first holds it; everyone else sees it read-only. */
+function editorsOf(id){ return S.peers.filter(p=>!p.isMe&&p.presence&&p.presence.view==="script"&&p.presence.scene===id&&p.presence.editing); }
+function lockOwner(id){
+  const others=editorsOf(id); if(!others.length) return null;
+  const first=others.slice().sort((a,b)=>(a.presence.since||0)-(b.presence.since||0)||String(a.peer).localeCompare(String(b.peer)))[0];
+  const mine=S.focus.scene===id&&S.editingSince;
+  if(mine&&(S.editingSince<(first.presence.since||0)||(S.editingSince===(first.presence.since||0)&&String(S.myId)<String(first.peer)))) return null;
+  return first;
+}
+function editableFor(id){ return S.canWrite&&!(id&&lockOwner(id)); }
 function renderHere(){
   $$("#scenes section.scene").forEach(sec=>{
-    const h=sec.querySelector(".here"); if(!h) return;
-    const ps=S.peers.filter(p=>!p.isMe&&p.presence&&p.presence.scene===sec.dataset.id&&p.presence.view==="script");
-    h.innerHTML=""; ps.forEach(p=>{ const s=document.createElement("span"); const pr=prof(p.by); s.style.background=pr.color; s.textContent=(pr.name||"Someone")+" is here"; h.appendChild(s); });
+    const id=sec.dataset.id, h=sec.querySelector(".here"); if(!h) return;
+    const owner=lockOwner(id);
+    const ps=S.peers.filter(p=>!p.isMe&&p.presence&&p.presence.scene===id&&p.presence.view==="script");
+    h.innerHTML=""; ps.forEach(p=>{ const s=document.createElement("span"); const pr=prof(p.by); s.style.background=pr.color; s.textContent=(pr.name||"Someone")+(owner&&owner.peer===p.peer?" is editing · view only":" is here"); h.appendChild(s); });
+    const locked=!!owner; sec.classList.toggle("locked",locked);
+    const ce=(!locked&&S.canWrite)?(PO?"plaintext-only":"true"):"false";
+    sec.querySelectorAll(".blk").forEach(b=>{ if(b.contentEditable!==ce) b.contentEditable=ce; });
+    if(locked&&sec.contains(document.activeElement)){
+      document.activeElement.blur(); S.editingSince=0; announce();
+      toast(`${prof(owner.by).name||"A teammate"} is already editing this scene. It unlocks when they move on.`);
+    }
   });
 }
 function renderTypes(){
@@ -411,6 +432,7 @@ Headlights sweep across the lot. A black sedan idles, wipers beating.`;
 /* ---------- storyboard ---------- */
 function onPanels(snap){
   S.panels=snap.docs.map(d=>({id:d.id,...clone(d.data())}));
+  migrateFrames();
   if(S.view==="board") renderBoard();
 }
 function panelsBy(){
@@ -496,11 +518,19 @@ $("#pFile").onchange=e=>{
 };
 $("#pClose").onclick=$("#pCancel").onclick=closePanel;
 $("#pov").addEventListener("click",e=>{ if(e.target.id==="pov") closePanel(); });
-$("#pSave").onclick=()=>{
+$("#pSave").onclick=async()=>{
   const p=ED.id?S.panels.find(x=>x.id===ED.id):null;
+  const btn=$("#pSave"); if(btn.disabled) return;
   const sceneId=$("#pScene").value;
   const data={sceneId, shot:$("#pShot").value, angle:$("#pAngle").value, move:$("#pMove").value, lens:$("#pLens").value.trim(), dur:$("#pDur").value.trim(), setup:$("#pSetup").value.trim(), desc:$("#pDesc").value.trim(), audio:$("#pAudio").value.trim(), by:S.myId||null, at:Date.now()};
-  if(ED.touched||!p){ let img=cv.toDataURL("image/jpeg",0.72); if(img.length>190000) img=cv.toDataURL("image/jpeg",0.5); data.img=img; } else data.img=p.img||"";
+  if(ED.touched||!p){
+    btn.disabled=true; btn.textContent="Saving frame…";
+    try{
+      const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",0.82));
+      data.img=await uploadFrame(blob);
+    }catch(e){ btn.disabled=false; btn.textContent="Save shot"; toast("The frame couldn't be uploaded. Check your connection and try again."); return; }
+    btn.disabled=false; btn.textContent="Save shot";
+  } else data.img=p.img||"";
   if(p&&p.sceneId===sceneId) data.order=p.order||0;
   else data.order=Math.max(-1,...S.panels.filter(x=>x.sceneId===sceneId).map(x=>x.order||0))+1;
   const id=ED.id||uid();
@@ -613,7 +643,7 @@ function sheetHTML(sh){
 /* ---------- presence ---------- */
 function prof(id){ return S.profiles[id]||{name:"",color:"#7a8580",avatarUrl:""}; }
 let presT;
-function announce(){ clearTimeout(presT); presT=setTimeout(()=>{ if(S.room) S.room.presence({view:S.view, scene:S.view==="script"?S.focus.scene:null}).catch(()=>{}); },250); }
+function announce(){ clearTimeout(presT); presT=setTimeout(()=>{ if(S.room) S.room.presence({view:S.view, scene:S.view==="script"?S.focus.scene:null, editing:S.view==="script"&&!!S.editingSince, since:S.editingSince||0}).catch(()=>{}); },150); }
 async function renderPeople(){
   const ids=[...new Set(S.peers.map(p=>p.by).filter(Boolean))];
   if(S.user&&ids.length){ try{ S.profiles=await S.user.profiles(ids); }catch(e){} }
@@ -688,11 +718,16 @@ scenesBox.addEventListener("input",onInput);
 scenesBox.addEventListener("paste",onPaste);
 scenesBox.addEventListener("focusin",e=>{
   const el=e.target.closest(".blk"); if(!el) return;
-  const id=el.closest("section.scene").dataset.id; const changed=S.focus.scene!==id;
+  const id=el.closest("section.scene").dataset.id; const changed=S.focus.scene!==id||!S.editingSince;
+  clearTimeout(S.idleT);
+  if(lockOwner(id)){ el.blur(); toast(`${prof(lockOwner(id).by).name||"A teammate"} is editing this scene right now.`); return; }
+  if(changed) S.editingSince=Date.now();
   S.focus={scene:id,i:+el.dataset.i}; renderTypes(); if(changed){ renderNav(); announce(); }
 });
 scenesBox.addEventListener("focusout",e=>{
   const sec=e.target.closest("section.scene");
+  clearTimeout(S.idleT);
+  S.idleT=setTimeout(()=>{ if(!scenesBox.contains(document.activeElement)&&S.editingSince){ S.editingSince=0; announce(); } },1200);
   setTimeout(()=>{ if(sec&&sec._stale&&!sec.contains(document.activeElement)&&S.map[sec.dataset.id]) { fillSection(sec,S.map[sec.dataset.id]); renderScript(); } },0);
 });
 $("#types").addEventListener("mousedown",e=>{ if(e.target.closest("button")) e.preventDefault(); });
@@ -705,6 +740,257 @@ $("#exportBtn").onclick=()=>saveFile(((S.meta.title||"screenplay").replace(/[^\w
 $("#ptitle").addEventListener("change",e=>{ S.meta.title=e.target.value.trim(); write("project/meta",r=>r.set({...S.meta})); if(S.view==="calls") renderSheet(); });
 $("#rev").addEventListener("change",e=>{ S.meta.rev=e.target.value.replace(/ pages$/,""); S.meta.revDate=new Date().toLocaleDateString(undefined,{month:"2-digit",day:"2-digit",year:"2-digit"}); renderRev(); write("project/meta",r=>r.set({...S.meta})); });
 root.addEventListener("keydown",e=>{ if(e.key==="Escape"){ if(!$("#cov").hidden) $("#cNo").click(); else if(!$("#pov").hidden) closePanel(); } });
+
+/* ---------- storyboard frames in file storage ---------- */
+async function uploadFrame(blob){
+  if(adapters.uploadImage) return await adapters.uploadImage(new File([blob],"frame.jpg",{type:"image/jpeg"}));
+  return await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); });
+}
+/* Older shots kept their drawing inside the database. Move each one to file storage once. */
+async function migrateFrames(){
+  if(S.migrated||!S.canWrite||!adapters.uploadImage) return;
+  const old=S.panels.filter(p=>typeof p.img==="string"&&p.img.startsWith("data:image"));
+  if(!old.length) return;
+  S.migrated=true;
+  for(const p of old){
+    if(dead) return;
+    try{
+      const blob=await (await fetch(p.img)).blob();
+      const url=await adapters.uploadImage(new File([blob],"frame.jpg",{type:blob.type||"image/jpeg"}));
+      await write("panels/"+p.id, r=>r.update({img:url}));
+    }catch(e){ console.warn("frame move failed",e); }
+  }
+}
+
+/* ---------- version history ---------- */
+const AUTO_EVERY=10*60*1000;
+function scriptSnapshot(){
+  return { scenes:S.scenes.map(s=>({id:s.id,order:s.order,blocks:s.blocks.map(b=>({t:b.t,x:b.x}))})), meta:{title:S.meta.title||""} };
+}
+function totalPages(scenes){ const e=scenes.reduce((a,s)=>a+eighths(s),0); return e?eighthsStr(e):"0"; }
+async function saveVersion(label, auto){
+  if(!adapters.versions||!S.scenes.length) return null;
+  const data=scriptSnapshot();
+  const row=await adapters.versions.save({label:label||"", auto:!!auto, data, scene_count:data.scenes.length, pages:totalPages(S.scenes)});
+  S.lastVersionAt=Date.now(); S.changedSinceVersion=false;
+  return row;
+}
+let autoT;
+function maybeAutoVersion(){
+  if(!adapters.versions||!S.canWrite) return;
+  clearTimeout(autoT);
+  autoT=setTimeout(()=>{
+    if(S.changedSinceVersion&&Date.now()-S.lastVersionAt>AUTO_EVERY) saveVersion("",true).catch(e=>console.warn(e));
+  },4000);
+}
+function fmtWhen(iso){ const d=new Date(iso); return d.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" · "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}); }
+async function openHistory(){
+  const ov=$("#hov"); ov.hidden=false;
+  $("#hPreview").hidden=true; $("#hList").hidden=false;
+  $("#hList").innerHTML='<p class="hint">Loading versions…</p>';
+  $("#hSaveRow").hidden=!S.canWrite||!adapters.versions;
+  if(!adapters.versions){ $("#hList").innerHTML='<p class="hint">Version history needs the shared project connection.</p>'; return; }
+  try{
+    const list=await adapters.versions.list(150);
+    const ids=[...new Set(list.map(v=>v.created_by).filter(Boolean))];
+    let names={}; if(S.user&&ids.length){ try{ names=await S.user.profiles(ids); }catch(e){} }
+    $("#hList").innerHTML=list.length?list.map(v=>`<div class="hrow">
+      <div class="hmain"><b>${esc(v.label||(v.auto?"Autosave":"Saved version"))}</b><span>${esc(fmtWhen(v.created_at))} · ${esc((names[v.created_by]&&names[v.created_by].name)||"Someone")} · ${v.scene_count} scenes · ${esc(v.pages||"")} pages</span></div>
+      <div class="hacts"><button class="btn" data-hprev="${v.id}">Preview</button>${S.canWrite?`<button class="btn" data-hrestore="${v.id}">Restore</button>`:""}</div></div>`).join("")
+      :'<p class="hint">No versions yet. Backlot saves one automatically every 10 minutes while people are writing, and you can save one yourself any time above.</p>';
+  }catch(e){ $("#hList").innerHTML='<p class="hint">Versions couldn\'t be loaded. Check your connection and try again.</p>'; }
+}
+async function previewVersion(id){
+  const v=await adapters.versions.get(id); if(!v) return;
+  const scenes=(v.data&&v.data.scenes)||[];
+  $("#hList").hidden=true; $("#hPreview").hidden=false;
+  $("#hPrevTitle").textContent=(v.label||(v.auto?"Autosave":"Saved version"))+" · "+fmtWhen(v.created_at);
+  $("#hPrevBody").innerHTML=scenes.slice().sort((a,b)=>a.order-b.order).map((sc,k)=>`<section class="scene"><span class="snum l">${k+1}</span>${sc.blocks.map(b=>`<div class="blk t-${esc(b.t)}">${esc(b.x)}</div>`).join("")}</section>`).join("")||'<p class="hint">This version is empty.</p>';
+  $("#hPrevRestore").dataset.hrestore=id; $("#hPrevRestore").hidden=!S.canWrite;
+}
+async function restoreVersion(id){
+  const v=await adapters.versions.get(id); if(!v) return;
+  if(!await confirmBox(`Restore the script to "${v.label||(v.auto?"Autosave":"Saved version")}" from ${fmtWhen(v.created_at)}? The current script is saved as a version first, so you can undo this.`, "Restore")) return;
+  try{ await saveVersion("Before restore",false); }catch(e){ toast("Couldn't save the current script first, so nothing was changed."); return; }
+  const target=(v.data&&v.data.scenes)||[];
+  const keep=new Set(target.map(s=>s.id));
+  S.scenes.filter(s=>!keep.has(s.id)).forEach(s=>deleteScene(s.id,true));
+  target.forEach(t=>{
+    const sc={id:t.id,order:t.order,blocks:t.blocks.map(b=>({t:b.t,x:b.x}))};
+    if(S.map[t.id]){ Object.assign(S.map[t.id],sc); } else { S.scenes.push(sc); S.map[sc.id]=sc; }
+    saveScene(t.id,true);
+  });
+  S.scenes.sort((a,b)=>a.order-b.order);
+  $$("#scenes section.scene").forEach(sec=>{ if(S.map[sec.dataset.id]) fillSection(sec,S.map[sec.dataset.id]); });
+  renderScript(); $("#hov").hidden=true; toast("Script restored.");
+}
+
+/* ---------- print-ready screenplay (PDF) ---------- */
+const LINES_PER_PAGE=54;
+const COL={scene:{ind:0,w:60},action:{ind:0,w:60},shot:{ind:0,w:60},character:{ind:22,w:38},paren:{ind:16,w:25},dialogue:{ind:10,w:35},transition:{ind:0,w:60,right:true},more:{ind:22,w:38}};
+function wrap(text,w){
+  const out=[]; String(text||"").split(/\n/).forEach(par=>{
+    let line=""; par.split(/\s+/).filter(Boolean).forEach(word=>{
+      while(word.length>w){ if(line){ out.push(line); line=""; } out.push(word.slice(0,w)); word=word.slice(w); }
+      if(!line) line=word; else if((line+" "+word).length<=w) line+=" "+word; else { out.push(line); line=word; }
+    });
+    out.push(line);
+  });
+  return out.length?out:[""];
+}
+const UPPER=new Set(["scene","character","transition","shot"]);
+function elementLines(b){ const x=UPPER.has(b.t)?String(b.x||"").toUpperCase():String(b.x||""); return wrap(x,COL[b.t].w).map(t=>({t:b.t,x:t})); }
+function paginate(opts){
+  const pages=[]; let cur=[]; let first=true;
+  const room=()=>LINES_PER_PAGE-cur.length;
+  const newPage=()=>{ pages.push(cur); cur=[]; };
+  const blank=()=>{ if(cur.length) cur.push({t:"blank",x:""}); };
+  S.scenes.forEach((sc,si)=>{
+    const els=sc.blocks; let i=0;
+    while(i<els.length){
+      const b=els[i];
+      if(b.t==="character"){
+        // dialogue group: character + following parens/dialogue
+        const grp=[b]; let j=i+1; while(j<els.length&&(els[j].t==="dialogue"||els[j].t==="paren")) grp.push(els[j++]);
+        const charName=String(b.x||"").toUpperCase();
+        let lines=[]; grp.forEach(g=>lines.push(...elementLines(g)));
+        const need=(cur.length?1:0)+lines.length;
+        if(need<=room()){ blank(); cur.push(...lines); }
+        else if(room()-(cur.length?1:0)>=4&&lines.length>=4){
+          blank(); const fit=room()-1; let k=fit;
+          while(k>2&&lines[k-1].t!=="dialogue") k--;
+          cur.push(...lines.slice(0,k)); cur.push({t:"more",x:"(MORE)"}); newPage();
+          const cont=charName.replace(/\s*\(CONT'D\)\s*$/,"")+" (CONT'D)";
+          cur.push({t:"character",x:cont},...lines.slice(k));
+        } else { newPage(); cur.push(...lines); }
+        i=j; continue;
+      }
+      let lines=elementLines(b);
+      if(b.t==="scene"){
+        lines=lines.map((l,n)=>n===0?{...l,num:si+1}:l);
+        const next=els[i+1]?Math.min(2,elementLines(els[i+1]).length):0;
+        if((cur.length?2:0)+lines.length+next>room()) newPage();
+        if(cur.length){ cur.push({t:"blank",x:""}); cur.push({t:"blank",x:""}); }
+        cur.push(...lines);
+      } else if(b.t==="action"&&lines.length>=4&&(cur.length?1:0)+lines.length>room()&&room()-(cur.length?1:0)>=2){
+        blank(); const fit=room(); cur.push(...lines.slice(0,fit)); newPage(); cur.push(...lines.slice(fit));
+      } else {
+        if((cur.length?1:0)+lines.length>room()) newPage();
+        blank(); cur.push(...lines);
+      }
+      i++;
+    }
+  });
+  if(cur.length) newPage();
+  // never start a page with blank lines
+  return pages.map(p=>{ while(p.length&&p[0].t==="blank") p.shift(); return p; });
+}
+function printHTML(opts){
+  const pages=paginate(opts);
+  const m=S.meta;
+  const line=l=>{
+    if(l.t==="blank") return '<div class="pl">&nbsp;</div>';
+    const c=COL[l.t]||COL.action;
+    const num=l.num&&opts.numbers?`<span class="pn l">${l.num}</span><span class="pn r">${l.num}</span>`:"";
+    return `<div class="pl t-${l.t}" style="padding-left:${c.ind}ch;${c.right?"text-align:right;":""}">${num}${esc(l.x)||"&nbsp;"}</div>`;
+  };
+  let html="";
+  if(opts.title){
+    html+=`<div class="pp tp"><div class="tp-title">${esc((m.title||"Untitled").toUpperCase())}</div>
+      <div class="tp-by">Written by</div><div class="tp-name">${esc(m.writer||"")}</div>
+      <div class="tp-contact">${esc(m.contact||"").replace(/\n/g,"<br>")}</div>
+      <div class="tp-draft">${esc(m.draft||"")}</div></div>`;
+  }
+  pages.forEach((p,n)=>{
+    html+=`<div class="pp">${n>0?`<div class="pnum">${n+1}.</div>`:""}${opts.revision&&m.rev&&m.rev!=="White"?`<div class="prev">${esc(m.rev)} Rev. ${esc(m.revDate||"")}</div>`:""}<div class="pbody">${p.map(line).join("")}</div></div>`;
+  });
+  return {html, count:pages.length};
+}
+const PRINT_CSS=`
+#olm-print{display:none}
+@media print{
+  @page{size:8.5in 11in;margin:0}
+  html,body{background:#fff!important}
+  body>*:not(#olm-print){display:none!important}
+  #olm-print{display:block!important}
+}
+#olm-print .pp{position:relative;width:8.5in;height:11in;page-break-after:always;break-after:page;overflow:hidden;background:#fff;color:#000;font:12pt/1 "Courier Prime","Courier New",Courier,monospace}
+#olm-print .pp:last-child{page-break-after:auto;break-after:auto}
+#olm-print .pbody{position:absolute;top:1in;left:1.5in;width:6in}
+#olm-print .pl{height:12pt;line-height:12pt;white-space:pre;position:relative}
+#olm-print .t-scene{font-weight:700}
+#olm-print .pn{position:absolute;top:0}
+#olm-print .pn.l{left:-0.75in}
+#olm-print .pn.r{right:-0.75in}
+#olm-print .pnum{position:absolute;top:.5in;right:1in}
+#olm-print .prev{position:absolute;top:.5in;left:1.5in;font-size:10pt}
+#olm-print .tp-title{position:absolute;top:3.5in;left:0;right:0;text-align:center;text-decoration:underline}
+#olm-print .tp-by{position:absolute;top:4.2in;left:0;right:0;text-align:center}
+#olm-print .tp-name{position:absolute;top:4.6in;left:0;right:0;text-align:center}
+#olm-print .tp-contact{position:absolute;bottom:1in;left:1.5in;line-height:12pt}
+#olm-print .tp-draft{position:absolute;bottom:1in;right:1in}
+`;
+function openPrint(){
+  $("#prTitle").value=S.meta.title||""; $("#prWriter").value=S.meta.writer||""; $("#prContact").value=S.meta.contact||""; $("#prDraft").value=S.meta.draft||"";
+  const est=paginate({}).length; $("#prCount").textContent=S.scenes.length?`About ${est} page${est===1?"":"s"}.`:"The script is empty.";
+  $("#pdfov").hidden=false;
+}
+function doPrint(){
+  const m={title:$("#prTitle").value.trim(),writer:$("#prWriter").value.trim(),contact:$("#prContact").value.trim(),draft:$("#prDraft").value.trim()};
+  const changed=Object.keys(m).some(k=>(S.meta[k]||"")!==m[k]);
+  Object.assign(S.meta,m); if(changed&&S.canWrite) write("project/meta",r=>r.set({...S.meta}));
+  const opts={title:$("#prTitlePage").checked,numbers:$("#prNumbers").checked,revision:$("#prRev").checked};
+  let host=document.getElementById("olm-print");
+  if(!host){ host=document.createElement("div"); host.id="olm-print"; document.body.appendChild(host); const st=document.createElement("style"); st.id="olm-print-css"; st.textContent=PRINT_CSS; document.head.appendChild(st); }
+  const {html}=printHTML(opts); host.innerHTML=html;
+  $("#pdfov").hidden=true;
+  const oldTitle=document.title; document.title=(m.title||"Screenplay");
+  setTimeout(()=>{ window.print(); document.title=oldTitle; },60);
+}
+
+/* extra dialogs */
+root.insertAdjacentHTML("beforeend",`
+<div class="ov" id="hov" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="hHead">
+  <div class="mhead"><h2 id="hHead">Version history</h2><button class="x" data-close="hov" aria-label="Close">✕</button></div>
+  <div class="hsave" id="hSaveRow"><input class="field" id="hLabel" placeholder="Name this version, e.g. Table read draft"><button class="btn primary" id="hSave">Save version</button></div>
+  <div id="hList" class="hlist"></div>
+  <div id="hPreview" hidden>
+    <div class="hprevbar"><button class="btn" id="hBack">← All versions</button><b id="hPrevTitle"></b><button class="btn primary" id="hPrevRestore">Restore this version</button></div>
+    <div class="page-wrap"><div class="page hpage" id="hPrevBody"></div></div>
+  </div>
+</div></div>
+<div class="ov" id="pdfov" hidden><div class="modal sm" role="dialog" aria-modal="true" aria-labelledby="prHead">
+  <div class="mhead"><h2 id="prHead">Print / Save as PDF</h2><button class="x" data-close="pdfov" aria-label="Close">✕</button></div>
+  <div class="form one">
+    <label>Title<input class="field" id="prTitle"></label>
+    <label>Written by<input class="field" id="prWriter" placeholder="Your name"></label>
+    <label>Contact (title page, bottom left)<textarea class="field" id="prContact" rows="2" placeholder="Email, phone, agent"></textarea></label>
+    <label>Draft<input class="field" id="prDraft" placeholder="First draft, October 2026"></label>
+    <label class="chk"><input type="checkbox" id="prTitlePage" checked> Include title page</label>
+    <label class="chk"><input type="checkbox" id="prNumbers" checked> Scene numbers in both margins</label>
+    <label class="chk"><input type="checkbox" id="prRev" checked> Revision color label in page header</label>
+    <p class="hint" id="prCount"></p>
+    <p class="hint">Your browser's print window opens. Choose <b>Save as PDF</b> as the destination, and set margins to <b>None</b> if it asks.</p>
+  </div>
+  <div class="mfoot" style="justify-content:flex-end"><button class="btn" data-close="pdfov">Cancel</button><button class="btn primary" id="prGo">Print / Save PDF</button></div>
+</div></div>`);
+$("#historyBtn").onclick=openHistory;
+$("#pdfBtn").onclick=openPrint;
+$("#prGo").onclick=doPrint;
+$("#hBack").onclick=()=>{ $("#hPreview").hidden=true; $("#hList").hidden=false; };
+$("#hSave").onclick=async()=>{
+  const b=$("#hSave"); b.disabled=true;
+  try{ await saveVersion($("#hLabel").value.trim(),false); $("#hLabel").value=""; toast("Version saved."); openHistory(); }
+  catch(e){ toast("The version couldn't be saved. Try again."); }
+  b.disabled=false;
+};
+root.addEventListener("click",e=>{
+  const t=e.target.closest("[data-close],[data-hprev],[data-hrestore]"); if(!t) return;
+  if(t.dataset.close) $("#"+t.dataset.close).hidden=true;
+  else if(t.dataset.hprev) previewVersion(t.dataset.hprev);
+  else if(t.dataset.hrestore) restoreVersion(t.dataset.hrestore);
+});
+root.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["hov","pdfov"].forEach(id=>{ const o=$("#"+id); if(o&&!o.hidden) o.hidden=true; }); } });
 
 /* ---------- boot ---------- */
 function renderAll(){ renderScript(); renderTypes(); renderRev(); }
@@ -727,6 +1013,7 @@ async function boot(){
   db.doc("project/meta").onSnapshot(s=>{ if(document.activeElement===$("#ptitle")) return; S.meta=s.exists?clone(s.data()):{}; $("#ptitle").value=S.meta.title||""; renderRev(); },err);
   db.doc("project/cast").onSnapshot(s=>{ S.actors=s.exists?clone(s.data().actors)||{}:{}; if(S.view==="calls"&&!sheetFocused()) renderSheet(); },err);
   setStatus();
+  if(adapters.versions){ adapters.versions.list(1).then(v=>{ S.lastVersionAt=v[0]?new Date(v[0].created_at).getTime():0; }).catch(()=>{}); }
   if(room){
     unsubs.push(room.onPeers(ch=>{ S.peers=ch.peers.slice(); renderPeople(); }));
     announce();

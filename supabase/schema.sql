@@ -85,15 +85,20 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 create or replace function public.jsonb_deep_merge(a jsonb, b jsonb) returns jsonb
-language sql immutable as $$
-  select case
-    when jsonb_typeof(a) = 'object' and jsonb_typeof(b) = 'object' then (
-      select coalesce(jsonb_object_agg(k,
-        case when a ? k and b ? k then public.jsonb_deep_merge(a -> k, b -> k)
-             when b ? k then b -> k else a -> k end), '{}'::jsonb)
-      from (select jsonb_object_keys(a) as k union select jsonb_object_keys(b)) keys)
-    else b end
-$$;
+language plpgsql immutable as $$
+declare k text; v jsonb; r jsonb;
+begin
+  if a is null or jsonb_typeof(a) <> 'object' or jsonb_typeof(b) <> 'object' then return b; end if;
+  r := a;
+  for k, v in select * from jsonb_each(b) loop
+    if r ? k and jsonb_typeof(r -> k) = 'object' and jsonb_typeof(v) = 'object' then
+      r := jsonb_set(r, array[k], public.jsonb_deep_merge(r -> k, v));
+    else
+      r := r || jsonb_build_object(k, v);
+    end if;
+  end loop;
+  return r;
+end $$;
 
 create or replace function public.backlot_update(p_path text, p_patch jsonb) returns void
 language sql security invoker as $$
@@ -115,3 +120,27 @@ drop policy if exists "team deletes media" on storage.objects;
 create policy "team deletes media" on storage.objects for delete to authenticated using (bucket_id in ('media', 'films'));
 drop policy if exists "team lists media" on storage.objects;
 create policy "team lists media" on storage.objects for select to authenticated using (bucket_id in ('media', 'films'));
+
+-- ---------- Access for the website ----------
+grant usage on schema public to anon, authenticated;
+grant select on public.posts, public.films to anon;
+grant select, insert, update, delete on public.posts, public.films, public.backlot_docs, public.profiles to authenticated;
+grant execute on function public.backlot_update(text, jsonb) to authenticated;
+grant execute on function public.jsonb_deep_merge(jsonb, jsonb) to authenticated;
+
+-- ---------- Backlot version history ----------
+create table if not exists public.backlot_versions (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  created_by uuid default auth.uid(),
+  label text not null default '',
+  auto boolean not null default false,
+  scene_count int not null default 0,
+  pages text not null default '',
+  data jsonb not null default '{}'::jsonb
+);
+create index if not exists backlot_versions_created_at on public.backlot_versions (created_at desc);
+alter table public.backlot_versions enable row level security;
+drop policy if exists "team uses versions" on public.backlot_versions;
+create policy "team uses versions" on public.backlot_versions for all to authenticated using (true) with check (true);
+grant select, insert, update, delete on public.backlot_versions to authenticated;

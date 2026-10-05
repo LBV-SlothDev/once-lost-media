@@ -197,3 +197,18 @@
 @media (prefers-reduced-motion:reduce){.backlot *{transition:none!important;scroll-behavior:auto!important}}
 
 .backlot .empty{border:0}
+.backlot section.scene.locked .blk{opacity:.72;cursor:not-allowed}
+.backlot section.scene.locked{outline:1px dashed var(--line);outline-offset:.6em;border-radius:2px}
+.backlot .lockico{font-size:10px}
+.backlot .form.one{grid-template-columns:minmax(0,1fr)}
+.backlot .form label.chk{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:13px}
+.backlot .hsave{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.backlot .hsave .field{flex:1;min-width:200px}
+.backlot .hlist{display:grid;gap:2px;max-height:60vh;overflow:auto}
+.backlot .hrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 8px;border-top:1px solid var(--line);flex-wrap:wrap}
+.backlot .hmain{display:grid;gap:2px;min-width:0}
+.backlot .hmain span{font-size:12px;color:var(--muted)}
+.backlot .hacts{display:flex;gap:6px}
+.backlot .hprevbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.backlot .hpage{min-height:0;max-height:60vh;overflow:auto;padding:3em 3em 3em 6em}
+.backlot #cov{z-index:70}

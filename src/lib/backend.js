@@ -279,7 +279,24 @@ const supa = {
         return () => handlers.delete(h);
       },
     };
-    return { db: store.db, user, room, destroy: () => { c.removeChannel(docs); c.removeChannel(pres); } };
+    const versions = {
+      async list(n = 100) {
+        const { data, error } = await c.from("backlot_versions").select("id,created_at,created_by,label,auto,scene_count,pages").order("created_at", { ascending: false }).limit(n);
+        if (error) throw friendly(error);
+        return data;
+      },
+      async get(id) {
+        const { data, error } = await c.from("backlot_versions").select("*").eq("id", id).maybeSingle();
+        if (error) throw friendly(error);
+        return data;
+      },
+      async save(v) {
+        const { data, error } = await c.from("backlot_versions").insert({ label: v.label, auto: v.auto, data: v.data, scene_count: v.scene_count, pages: v.pages }).select("id,created_at").single();
+        if (error) throw friendly(error);
+        return data;
+      },
+    };
+    return { db: store.db, user, room, versions, uploadImage: (f) => supa.uploadImage(f), destroy: () => { c.removeChannel(docs); c.removeChannel(pres); } };
   },
 };
 
@@ -413,6 +430,27 @@ const demo = {
         presence: async (p) => { state = { ...state, ...p }; emit(); },
         onPeers: (h) => { handlers.add(h); setTimeout(emit, 0); return () => handlers.delete(h); },
       },
+      versions: {
+        async list(n = 100) {
+          let v = [];
+          try { v = JSON.parse(localStorage.getItem("olm.demo.versions")) || []; } catch {}
+          return v.slice(0, n).map(({ data, ...rest }) => rest);
+        },
+        async get(id) {
+          let v = [];
+          try { v = JSON.parse(localStorage.getItem("olm.demo.versions")) || []; } catch {}
+          return v.find((x) => x.id === id) || null;
+        },
+        async save(row) {
+          let v = [];
+          try { v = JSON.parse(localStorage.getItem("olm.demo.versions")) || []; } catch {}
+          const rec = { ...row, id: uid(), created_at: stamp(), created_by: me.id };
+          v.unshift(rec);
+          try { localStorage.setItem("olm.demo.versions", JSON.stringify(v.slice(0, 30))); } catch {}
+          return rec;
+        },
+      },
+      uploadImage: (f) => demo.uploadImage(f),
       destroy: () => {},
     };
   },
