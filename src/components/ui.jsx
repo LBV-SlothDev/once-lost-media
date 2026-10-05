@@ -5,7 +5,7 @@ import { DEMO, api } from "../lib/backend.js";
 import { asset, fmtDate, fmtRuntime } from "../lib/format.js";
 
 export function Nav({ onReplay }) {
-  const { user } = useAuth();
+  const { user, isOwner } = useAuth();
   return (
     <header className="topnav">
       <div className="nav-in">
@@ -19,7 +19,7 @@ export function Nav({ onReplay }) {
             <Link to="/journal">Journal</Link>
             {user && <Link to="/studio">Studio</Link>}
           </nav>
-          <MoreMenu user={user} onReplay={onReplay} />
+          <MoreMenu user={user} isOwner={isOwner} onReplay={onReplay} />
         </div>
       </div>
     </header>
@@ -27,7 +27,7 @@ export function Nav({ onReplay }) {
 }
 
 /* The three-dot menu in the top bar. */
-function MoreMenu({ user, onReplay }) {
+function MoreMenu({ user, isOwner, onReplay }) {
   const { navigate, path } = useRouter();
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
@@ -40,8 +40,7 @@ function MoreMenu({ user, onReplay }) {
     ...(user
       ? [
           { label: "Studio", to: "/studio" },
-          { label: "Upload a film", to: "/studio/film/new" },
-          { label: "Write a journal entry", to: "/studio/post/new" },
+          ...(isOwner ? [{ label: "Upload a film", to: "/studio/film/new" }, { label: "Write a journal entry", to: "/studio/post/new" }] : []),
           { label: "Backlot", to: "/studio/backlot", hint: "Script · storyboard · call sheets" },
           "sep",
         ]
@@ -178,6 +177,20 @@ export function Loading({ label = "Loading" }) {
 export function ErrorNote({ error }) {
   if (!error) return null;
   return <div className="error-note" role="alert">{error.message || String(error)}</div>;
+}
+
+export function RequireOwner({ children }) {
+  const { isOwner, loading, user } = useAuth();
+  if (loading || !user) return <RequireTeam>{children}</RequireTeam>;
+  if (!isOwner) return (
+    <main className="page narrow">
+      <Empty title="Owner only">
+        <p>Only the site owner can add or change journal entries and films. You can still use Backlot with the team.</p>
+        <Link to="/studio/backlot" className="btn gold">Open Backlot</Link>
+      </Empty>
+    </main>
+  );
+  return children;
 }
 
 export function RequireTeam({ children }) {

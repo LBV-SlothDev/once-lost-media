@@ -7,7 +7,7 @@ import { asset, fmtDate, fmtRuntime } from "../lib/format.js";
 import { FilmCard, PostCard, RunningStrip, Empty, Loading, ErrorNote, useLoad } from "../components/ui.jsx";
 
 export function Home() {
-  const { user } = useAuth();
+  const { isOwner: user } = useAuth();
   const films = useLoad(() => api.listFilms(), []);
   const posts = useLoad(() => api.listPosts(), []);
   const f = films.data || [];
@@ -134,7 +134,7 @@ export function Journal() {
 }
 
 export function Post({ slug }) {
-  const { user } = useAuth();
+  const { user, isOwner } = useAuth();
   const post = useLoad(() => api.getPost({ slug }), [slug]);
   useEffect(() => {
     if (post.data) document.title = post.data.title + " · Once Lost Media";
@@ -152,7 +152,7 @@ export function Post({ slug }) {
         <h1>{p.title}</h1>
         <p className="meta">
           {fmtDate(p.created_at)} · {readingTime(p.body)} min read{p.author_name ? ` · ${p.author_name}` : ""}
-          {user && <> · <Link to={`/studio/post/${p.id}`}>Edit</Link></>}
+          {isOwner && <> · <Link to={`/studio/post/${p.id}`}>Edit</Link></>}
         </p>
       </header>
       <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(p.body) }} />

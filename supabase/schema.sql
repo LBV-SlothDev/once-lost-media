@@ -144,3 +144,43 @@ alter table public.backlot_versions enable row level security;
 drop policy if exists "team uses versions" on public.backlot_versions;
 create policy "team uses versions" on public.backlot_versions for all to authenticated using (true) with check (true);
 grant select, insert, update, delete on public.backlot_versions to authenticated;
+-- Site owner: only the owner can add, change or delete journal entries and films.
+create table if not exists public.site_owners (
+  user_id uuid primary key references auth.users (id) on delete cascade
+);
+alter table public.site_owners enable row level security;
+drop policy if exists "team sees owners" on public.site_owners;
+create policy "team sees owners" on public.site_owners for select to authenticated using (true);
+grant select on public.site_owners to authenticated;
+insert into public.site_owners (user_id)
+  select id from auth.users where lower(email) = 'clint@oncelostmedia.com'
+  on conflict do nothing;
+
+create or replace function public.is_site_owner() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.site_owners where user_id = auth.uid());
+$$;
+grant execute on function public.is_site_owner() to anon, authenticated;
+
+drop policy if exists "team writes posts" on public.posts;
+drop policy if exists "owner writes posts" on public.posts;
+create policy "owner writes posts" on public.posts for all to authenticated
+  using (public.is_site_owner()) with check (public.is_site_owner());
+
+drop policy if exists "team writes films" on public.films;
+drop policy if exists "owner writes films" on public.films;
+create policy "owner writes films" on public.films for all to authenticated
+  using (public.is_site_owner()) with check (public.is_site_owner());
+
+-- Movie files: only the owner uploads or removes them. Images (covers, storyboard frames) stay open to the team.
+drop policy if exists "team uploads media" on storage.objects;
+create policy "team uploads media" on storage.objects for insert to authenticated
+  with check (bucket_id = 'media' or (bucket_id = 'films' and public.is_site_owner()));
+drop policy if exists "team updates media" on storage.objects;
+create policy "team updates media" on storage.objects for update to authenticated
+  using (bucket_id = 'media' or (bucket_id = 'films' and public.is_site_owner()));
+drop policy if exists "team deletes media" on storage.objects;
+create policy "team deletes media" on storage.objects for delete to authenticated
+  using (bucket_id = 'media' or (bucket_id = 'films' and public.is_site_owner()));
+
+select (select count(*) from public.site_owners) as owners;

@@ -9,11 +9,11 @@ import { mountBacklot } from "../backlot/backlot.js";
 
 /* ---------------- Dashboard ---------------- */
 export function Studio() {
-  const { user } = useAuth();
+  const { user, isOwner } = useAuth();
   const { navigate } = useRouter();
   const [tick, setTick] = useState(0);
-  const posts = useLoad(() => api.listPosts({ drafts: true }), [tick]);
-  const films = useLoad(() => api.listFilms({ drafts: true }), [tick]);
+  const posts = useLoad(() => (isOwner ? api.listPosts({ drafts: true }) : Promise.resolve([])), [tick, isOwner]);
+  const films = useLoad(() => (isOwner ? api.listFilms({ drafts: true }) : Promise.resolve([])), [tick, isOwner]);
   const [name, setName] = useState("");
   useEffect(() => { api.getProfile(user.id).then((p) => p && setName(p.display_name || "")); }, [user.id]);
 
@@ -36,6 +36,7 @@ export function Studio() {
       )}
 
       <div className="studio-grid">
+        {isOwner && (<>
         <section className="card">
           <div className="card-head"><h2>Journal</h2><Link to="/studio/post/new" className="btn gold sm">New entry</Link></div>
           {posts.loading ? <Loading /> : posts.error ? <ErrorNote error={posts.error} /> : posts.data.length ? (
@@ -73,6 +74,7 @@ export function Studio() {
           ) : <p className="muted">No films yet. Upload a movie file to start.</p>}
         </section>
 
+        </>)}
         <section className="card backlot-card">
           <div className="card-head"><h2>Backlot</h2><Link to="/studio/backlot" className="btn gold sm">Open Backlot</Link></div>
           <p>Write the screenplay together, storyboard every shot, and send call sheets with call times. Everyone on the team sees changes live.</p>

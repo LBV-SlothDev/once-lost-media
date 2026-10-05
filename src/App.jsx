@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Router, useRouter, match } from "./lib/router.jsx";
 import { AuthProvider } from "./lib/auth.jsx";
 import FilmIntro from "./components/FilmIntro.jsx";
-import { Nav, Footer, Toaster, RequireTeam } from "./components/ui.jsx";
+import { Nav, Footer, Toaster, RequireTeam, RequireOwner } from "./components/ui.jsx";
 import { Home, Films, Watch, Journal, Post, Login, NotFound } from "./pages/public.jsx";
 import { Studio, PostEditor, FilmEditor, BacklotPage } from "./pages/studio.jsx";
 
@@ -16,6 +16,7 @@ const markSeen = () => {
 function Routes() {
   const { path } = useRouter();
   const team = (el) => <RequireTeam>{el}</RequireTeam>;
+  const owner = (el) => <RequireOwner>{el}</RequireOwner>;
   let m;
   if (path === "/") return <Home />;
   if (path === "/films") return <Films />;
@@ -24,10 +25,10 @@ function Routes() {
   if ((m = match("/journal/:slug", path))) return <Post slug={m.slug} />;
   if (path === "/login") return <Login />;
   if (path === "/studio") return team(<Studio />);
-  if (path === "/studio/post/new") return team(<PostEditor key="new" />);
-  if ((m = match("/studio/post/:id", path))) return team(<PostEditor key={m.id} id={m.id} />);
-  if (path === "/studio/film/new") return team(<FilmEditor key="new" />);
-  if ((m = match("/studio/film/:id", path))) return team(<FilmEditor key={m.id} id={m.id} />);
+  if (path === "/studio/post/new") return owner(<PostEditor key="new" />);
+  if ((m = match("/studio/post/:id", path))) return owner(<PostEditor key={m.id} id={m.id} />);
+  if (path === "/studio/film/new") return owner(<FilmEditor key="new" />);
+  if ((m = match("/studio/film/:id", path))) return owner(<FilmEditor key={m.id} id={m.id} />);
   if (path === "/studio/backlot") return team(<BacklotPage />);
   return <NotFound />;
 }

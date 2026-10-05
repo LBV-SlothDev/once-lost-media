@@ -90,7 +90,9 @@ const supa = {
   },
   async onAuth(cb) {
     const c = await sb();
-    const { data } = c.auth.onAuthStateChange((_e, session) => cb(session ? session.user : null));
+    const { data } = c.auth.onAuthStateChange((_e, session) => {
+      setTimeout(() => cb(session ? session.user : null), 0);
+    });
     return () => data.subscription.unsubscribe();
   },
   async signIn(email) {
@@ -101,6 +103,11 @@ const supa = {
   async signOut() {
     const c = await sb();
     await c.auth.signOut();
+  },
+  async isOwner() {
+    const c = await sb();
+    const { data, error } = await c.rpc("is_site_owner");
+    return !error && data === true;
   },
   async getProfile(id) {
     const c = await sb();
@@ -343,6 +350,7 @@ const demo = {
     authSubs.forEach((cb) => cb(null));
   },
   async getProfile() { return null; },
+  async isOwner() { return true; },
   async setDisplayName() {},
   async listPosts({ drafts } = {}) {
     return readDemo().posts.filter((p) => drafts || p.published).sort((a, b) => b.created_at.localeCompare(a.created_at));
