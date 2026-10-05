@@ -1,6 +1,6 @@
 import "./backlot.css";
 
-const MARKUP = "<div class=\"bar\">\n  <div class=\"bar-in\">\n    <div class=\"brand\"><i aria-hidden=\"true\"></i>BACKLOT</div>\n    <input id=\"ptitle\" class=\"ptitle\" placeholder=\"Untitled project\" aria-label=\"Project title\">\n    <div class=\"tabs\" role=\"tablist\">\n      <button class=\"tab\" role=\"tab\" data-view=\"script\" aria-selected=\"true\">Script</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"board\" aria-selected=\"false\">Storyboard</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"calls\" aria-selected=\"false\">Call sheets</button>\n    </div>\n    <div class=\"spacer\"></div>\n    <div class=\"people\" id=\"people\" aria-label=\"People here now\"></div>\n    <div class=\"status\" id=\"status\"><span class=\"dot\"></span><span id=\"statusTxt\">Connecting\u2026</span></div>\n  </div>\n</div>\n<div class=\"banner\" id=\"banner\" hidden></div>\n\n<main>\n  <!-- SCRIPT -->\n  <section class=\"view\" id=\"v-script\">\n    <div class=\"script\">\n      <aside class=\"nav\">\n        <div class=\"nav-h\"><span class=\"eyebrow\">Scenes</span><button class=\"btn ghost\" id=\"addScene\" title=\"Add a scene at the end\">+ Scene</button></div>\n        <div class=\"stats\" id=\"stats\"></div>\n        <ol id=\"navList\"></ol>\n      </aside>\n      <div style=\"min-width:0\">\n        <div class=\"tools\">\n          <div class=\"types\" id=\"types\"></div>\n          <select class=\"field\" id=\"rev\" style=\"width:auto\" aria-label=\"Revision color\"></select>\n          <button class=\"btn\" id=\"importBtn\">Import</button>\n          <button class=\"btn\" id=\"pdfBtn\">Print / PDF</button>\n          <button class=\"btn\" id=\"historyBtn\">History</button>\n          <button class=\"btn\" id=\"exportBtn\">Export .fountain</button>\n          <input type=\"file\" id=\"importFile\" accept=\".fountain,.txt,.md,text/plain\" hidden>\n        </div>\n        <p class=\"hint\" style=\"margin:-4px 0 12px\">Enter starts the next element \u00b7 Tab changes element type \u00b7 paste or import a Fountain script to bring in existing pages.</p>\n        <div class=\"page-wrap\">\n          <div class=\"page\" id=\"page\">\n            <div class=\"revband\"></div><div class=\"revlabel\" id=\"revlabel\"></div>\n            <div id=\"scenes\"></div>\n            <div class=\"empty\" id=\"scriptEmpty\" hidden>\n              <h2>FADE IN:</h2>\n              <p style=\"margin:0\">The script is empty. Start the first scene, or load a short sample to see how formatting works.</p>\n              <div class=\"row\"><button class=\"btn primary\" id=\"startScript\">Start writing</button><button class=\"btn\" id=\"sampleScript\">Load sample pages</button></div>\n            </div>\n          </div>\n        </div>\n      </div>\n    </div>\n  </section>\n\n  <!-- STORYBOARD -->\n  <section class=\"view\" id=\"v-board\" hidden>\n    <div class=\"sb-tools\">\n      <select class=\"field\" id=\"sbFilter\" aria-label=\"Show scene\"></select>\n      <span class=\"hint\" id=\"sbCount\"></span>\n      <div class=\"spacer\"></div>\n    </div>\n    <div id=\"sbBody\"></div>\n  </section>\n\n  <!-- CALL SHEETS -->\n  <section class=\"view\" id=\"v-calls\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <div class=\"days\" id=\"days\"></div>\n        <button class=\"btn primary\" id=\"newSheet\" style=\"width:100%;justify-content:center;margin-top:8px\">+ New shoot day</button>\n      </aside>\n      <div id=\"sheetWrap\" style=\"min-width:0\"></div>\n    </div>\n  </section>\n</main>\n\n<!-- panel editor -->\n<div class=\"ov\" id=\"pov\" hidden>\n  <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"pTitle\">\n    <div class=\"mhead\"><h2 id=\"pTitle\">Shot</h2><button class=\"x\" id=\"pClose\" aria-label=\"Close\">\u2715</button></div>\n    <div class=\"ed\">\n      <div>\n        <div class=\"canvas-box\"><canvas id=\"cv\" width=\"960\" height=\"540\"></canvas><div class=\"thirds\" id=\"thirds\" hidden></div></div>\n        <div class=\"ctools\">\n          <button class=\"btn on\" data-tool=\"pen\">Pencil</button>\n          <button class=\"btn\" data-tool=\"marker\">Marker</button>\n          <button class=\"btn\" data-tool=\"eraser\">Eraser</button>\n          <select class=\"field\" id=\"pSize\" style=\"width:auto\" aria-label=\"Brush size\"><option value=\"2\">Fine</option><option value=\"4\" selected>Medium</option><option value=\"9\">Bold</option><option value=\"20\">Wide</option></select>\n          <button class=\"btn\" id=\"pUndo\">Undo</button>\n          <button class=\"btn\" id=\"pClear\">Clear</button>\n          <button class=\"btn\" id=\"pThirds\">Thirds</button>\n          <button class=\"btn\" id=\"pUpload\">Upload image</button>\n          <input type=\"file\" id=\"pFile\" accept=\"image/*\" hidden>\n        </div>\n      </div>\n      <div class=\"form\">\n        <label class=\"full\">Scene<select class=\"field\" id=\"pScene\"></select></label>\n        <label>Shot size<select class=\"field\" id=\"pShot\"></select></label>\n        <label>Angle<select class=\"field\" id=\"pAngle\"></select></label>\n        <label>Movement<select class=\"field\" id=\"pMove\"></select></label>\n        <label>Lens (mm)<input class=\"field\" id=\"pLens\" inputmode=\"numeric\" placeholder=\"35\"></label>\n        <label>Duration (sec)<input class=\"field\" id=\"pDur\" inputmode=\"decimal\" placeholder=\"4\"></label>\n        <label>Setup<input class=\"field\" id=\"pSetup\" placeholder=\"A cam\"></label>\n        <label class=\"full\">Action / description<textarea class=\"field\" id=\"pDesc\" rows=\"3\" placeholder=\"What happens in frame\"></textarea></label>\n        <label class=\"full\">Dialogue / sound<textarea class=\"field\" id=\"pAudio\" rows=\"2\" placeholder=\"Lines or SFX over this shot\"></textarea></label>\n      </div>\n    </div>\n    <div class=\"mfoot\">\n      <button class=\"btn danger\" id=\"pDelete\">Delete shot</button>\n      <div style=\"display:flex;gap:8px\"><button class=\"btn\" id=\"pCancel\">Cancel</button><button class=\"btn primary\" id=\"pSave\">Save shot</button></div>\n    </div>\n  </div>\n</div>\n\n<!-- confirm -->\n<div class=\"ov\" id=\"cov\" hidden>\n  <div class=\"modal sm\" role=\"alertdialog\" aria-modal=\"true\">\n    <p id=\"cMsg\" style=\"margin:4px 0 16px;font-size:15px\"></p>\n    <div class=\"mfoot\" style=\"justify-content:flex-end\"><button class=\"btn\" id=\"cNo\">Cancel</button><button class=\"btn primary\" id=\"cYes\">Delete</button></div>\n  </div>\n</div>\n<div class=\"toast\" id=\"toast\" hidden></div>";
+const MARKUP = "<div class=\"bar\">\n  <div class=\"bar-in\">\n    <div class=\"brand\"><i aria-hidden=\"true\"></i>BACKLOT</div>\n    <input id=\"ptitle\" class=\"ptitle\" placeholder=\"Untitled project\" aria-label=\"Project title\">\n    <div class=\"tabs\" role=\"tablist\">\n      <button class=\"tab\" role=\"tab\" data-view=\"script\" aria-selected=\"true\">Script</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"chars\" aria-selected=\"false\">Characters</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"board\" aria-selected=\"false\">Storyboard</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"calls\" aria-selected=\"false\">Call sheets</button>\n    </div>\n    <div class=\"spacer\"></div>\n    <div class=\"people\" id=\"people\" aria-label=\"People here now\"></div>\n    <div class=\"status\" id=\"status\"><span class=\"dot\"></span><span id=\"statusTxt\">Connecting\u2026</span></div>\n  </div>\n</div>\n<div class=\"banner\" id=\"banner\" hidden></div>\n\n<main>\n  <!-- SCRIPT -->\n  <section class=\"view\" id=\"v-script\">\n    <div class=\"script\">\n      <aside class=\"nav\">\n        <div class=\"nav-h\"><span class=\"eyebrow\">Scenes</span><button class=\"btn ghost\" id=\"addScene\" title=\"Add a scene at the end\">+ Scene</button></div>\n        <div class=\"stats\" id=\"stats\"></div>\n        <ol id=\"navList\"></ol>\n      </aside>\n      <div style=\"min-width:0\">\n        <div class=\"tools\">\n          <div class=\"types\" id=\"types\"></div>\n          <select class=\"field\" id=\"rev\" style=\"width:auto\" aria-label=\"Revision color\"></select>\n          <button class=\"btn\" id=\"importBtn\">Import</button>\n          <button class=\"btn\" id=\"pdfBtn\">Print / PDF</button>\n          <button class=\"btn\" id=\"historyBtn\">History</button>\n          <button class=\"btn\" id=\"exportBtn\">Export .fountain</button>\n          <button class=\"btn danger\" id=\"clearScript\">Clear script</button>\n          <input type=\"file\" id=\"importFile\" accept=\".fountain,.txt,.md,text/plain\" hidden>\n        </div>\n        <p class=\"hint\" style=\"margin:-4px 0 12px\">Enter starts the next element \u00b7 Tab changes element type \u00b7 paste or import a Fountain script to bring in existing pages.</p>\n        <div class=\"page-wrap\">\n          <div class=\"page\" id=\"page\">\n            <div class=\"revband\"></div><div class=\"revlabel\" id=\"revlabel\"></div>\n            <div id=\"scenes\"></div>\n            <div class=\"empty\" id=\"scriptEmpty\" hidden>\n              <h2>FADE IN:</h2>\n              <p style=\"margin:0\">The script is empty. Start the first scene, or import a Fountain script you already have.</p>\n              <div class=\"row\"><button class=\"btn primary\" id=\"startScript\">Start writing</button><button class=\"btn\" id=\"emptyImport\">Import a script</button></div>\n            </div>\n          </div>\n        </div>\n      </div>\n    </div>\n  </section>\n\n  <!-- CHARACTERS -->\n  <section class=\"view\" id=\"v-chars\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <input class=\"field\" id=\"chSearch\" placeholder=\"Find a character or actor\" aria-label=\"Find a character\" style=\"margin-bottom:8px\">\n        <div class=\"days\" id=\"chList\"></div>\n        <form id=\"chAdd\" class=\"chadd\"><input class=\"field\" id=\"chNew\" placeholder=\"Add a character\" aria-label=\"New character name\"><button class=\"btn primary\">Add</button></form>\n        <p class=\"hint\" style=\"margin:8px 2px 0\">Characters who speak in the script are added automatically.</p>\n      </aside>\n      <div id=\"chWrap\" style=\"min-width:0\"></div>\n      <input type=\"file\" id=\"chFile\" accept=\"image/*\" hidden>\n    </div>\n  </section>\n\n  <!-- STORYBOARD -->\n  <section class=\"view\" id=\"v-board\" hidden>\n    <div class=\"sb-tools\">\n      <select class=\"field\" id=\"sbFilter\" aria-label=\"Show scene\"></select>\n      <span class=\"hint\" id=\"sbCount\"></span>\n      <div class=\"spacer\"></div>\n    </div>\n    <div id=\"sbBody\"></div>\n  </section>\n\n  <!-- CALL SHEETS -->\n  <section class=\"view\" id=\"v-calls\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <div class=\"days\" id=\"days\"></div>\n        <button class=\"btn primary\" id=\"newSheet\" style=\"width:100%;justify-content:center;margin-top:8px\">+ New shoot day</button>\n      </aside>\n      <div id=\"sheetWrap\" style=\"min-width:0\"></div>\n    </div>\n  </section>\n</main>\n\n<!-- panel editor -->\n<div class=\"ov\" id=\"pov\" hidden>\n  <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"pTitle\">\n    <div class=\"mhead\"><h2 id=\"pTitle\">Shot</h2><button class=\"x\" id=\"pClose\" aria-label=\"Close\">\u2715</button></div>\n    <div class=\"ed\">\n      <div>\n        <div class=\"canvas-box\"><canvas id=\"cv\" width=\"960\" height=\"540\"></canvas><div class=\"thirds\" id=\"thirds\" hidden></div></div>\n        <div class=\"ctools\">\n          <button class=\"btn on\" data-tool=\"pen\">Pencil</button>\n          <button class=\"btn\" data-tool=\"marker\">Marker</button>\n          <button class=\"btn\" data-tool=\"eraser\">Eraser</button>\n          <select class=\"field\" id=\"pSize\" style=\"width:auto\" aria-label=\"Brush size\"><option value=\"2\">Fine</option><option value=\"4\" selected>Medium</option><option value=\"9\">Bold</option><option value=\"20\">Wide</option></select>\n          <button class=\"btn\" id=\"pUndo\">Undo</button>\n          <button class=\"btn\" id=\"pClear\">Clear</button>\n          <button class=\"btn\" id=\"pThirds\">Thirds</button>\n          <button class=\"btn\" id=\"pUpload\">Upload image</button>\n          <input type=\"file\" id=\"pFile\" accept=\"image/*\" hidden>\n        </div>\n      </div>\n      <div class=\"form\">\n        <label class=\"full\">Scene<select class=\"field\" id=\"pScene\"></select></label>\n        <label>Shot size<select class=\"field\" id=\"pShot\"></select></label>\n        <label>Angle<select class=\"field\" id=\"pAngle\"></select></label>\n        <label>Movement<select class=\"field\" id=\"pMove\"></select></label>\n        <label>Lens (mm)<input class=\"field\" id=\"pLens\" inputmode=\"numeric\" placeholder=\"35\"></label>\n        <label>Duration (sec)<input class=\"field\" id=\"pDur\" inputmode=\"decimal\" placeholder=\"4\"></label>\n        <label>Setup<input class=\"field\" id=\"pSetup\" placeholder=\"A cam\"></label>\n        <label class=\"full\">Action / description<textarea class=\"field\" id=\"pDesc\" rows=\"3\" placeholder=\"What happens in frame\"></textarea></label>\n        <label class=\"full\">Dialogue / sound<textarea class=\"field\" id=\"pAudio\" rows=\"2\" placeholder=\"Lines or SFX over this shot\"></textarea></label>\n      </div>\n    </div>\n    <div class=\"mfoot\">\n      <button class=\"btn danger\" id=\"pDelete\">Delete shot</button>\n      <div style=\"display:flex;gap:8px\"><button class=\"btn\" id=\"pCancel\">Cancel</button><button class=\"btn primary\" id=\"pSave\">Save shot</button></div>\n    </div>\n  </div>\n</div>\n\n<!-- confirm -->\n<div class=\"ov\" id=\"cov\" hidden>\n  <div class=\"modal sm\" role=\"alertdialog\" aria-modal=\"true\">\n    <p id=\"cMsg\" style=\"margin:4px 0 16px;font-size:15px\"></p>\n    <div class=\"mfoot\" style=\"justify-content:flex-end\"><button class=\"btn\" id=\"cNo\">Cancel</button><button class=\"btn primary\" id=\"cYes\">Delete</button></div>\n  </div>\n</div>\n<div class=\"toast\" id=\"toast\" hidden></div>";
 
 const downloads = {
   async save({ filename, data }) {
@@ -44,7 +44,7 @@ const CREW = [["Direction","Director"],["Direction","1st AD"],["Direction","2nd 
 
 const S = {
   db:null, user:null, room:null, dl:null, myId:null, canWrite:true,
-  scenes:[], map:{}, panels:[], sheets:[], meta:{}, actors:{},
+  scenes:[], map:{}, panels:[], sheets:[], meta:{}, actors:{}, chars:{}, curChar:null, chStale:false, gone:new Set(),
   view:"script", curSheet:null, focus:{scene:null,i:0}, peers:[], profiles:{},
   dirty:new Set(), inflight:{}, timers:{}, pending:0, offline:false, sheetStale:false,
   editingSince:0, lastVersionAt:0, changedSinceVersion:false, migrated:false
@@ -149,6 +149,7 @@ function toFountain(){
 
 /* ---------- scene persistence ---------- */
 function saveScene(id, now){
+  S.gone.delete(id);
   S.dirty.add(id); setStatusDirty();
   clearTimeout(S.timers[id]);
   S.timers[id]=setTimeout(()=>flushScene(id), now?0:650);
@@ -167,6 +168,7 @@ function busy(id){ return S.dirty.has(id) || (S.inflight["scenes/"+id]||0)>0; }
 function onScenes(snap){
   const next=[];
   snap.docs.forEach(d=>{
+    if(S.gone.has(d.id)) return;
     const local=S.map[d.id];
     if(local && busy(d.id)) { next.push(local); return; }
     const data=d.data()||{};
@@ -174,10 +176,10 @@ function onScenes(snap){
     if(!blocks.length||blocks[0].t!=="scene") blocks.unshift({t:"scene",x:""});
     next.push({id:d.id, order:typeof data.order==="number"?data.order:0, blocks});
   });
-  S.scenes.forEach(s=>{ if(!next.some(n=>n.id===s.id) && busy(s.id)) next.push(s); });
+  S.scenes.forEach(s=>{ if(!S.gone.has(s.id) && !next.some(n=>n.id===s.id) && busy(s.id)) next.push(s); });
   next.sort((a,b)=>a.order-b.order);
   S.loaded=true; S.scenes=next; S.map=Object.fromEntries(next.map(s=>[s.id,s]));
-  renderScript(); if(S.view==="board") renderBoard(); if(S.view==="calls"&&!sheetFocused()) renderSheet();
+  renderScript(); if(S.view==="board") renderBoard(); if(S.view==="calls"&&!sheetFocused()) renderSheet(); if(S.view==="chars"){ if(chFocused()) S.chStale=true; else renderChars(); }
 }
 
 /* ---------- script rendering ---------- */
@@ -385,7 +387,7 @@ function sceneBefore(id){
   S.scenes.splice(k,0,sc); S.map[sc.id]=sc; saveScene(sc.id,true); renderScript(); focusBlock(sc.id,0,0);
 }
 function deleteScene(id, quiet){
-  const run=()=>{ clearTimeout(S.timers[id]); S.dirty.delete(id); S.scenes=S.scenes.filter(s=>s.id!==id); delete S.map[id]; renderScript(); write("scenes/"+id, r=>r.delete()); };
+  const run=()=>{ S.gone.add(id); clearTimeout(S.timers[id]); S.dirty.delete(id); S.scenes=S.scenes.filter(s=>s.id!==id); delete S.map[id]; renderScript(); write("scenes/"+id, r=>r.delete()); };
   if(quiet) return run();
   const sc=S.map[id];
   confirmBox(`Delete scene ${sceneNo(id)}${heading(sc)?` (${heading(sc)})`:""}? Its storyboard shots stay under "Unassigned".`).then(ok=>ok&&run());
@@ -403,31 +405,6 @@ function importText(text){
   groups.forEach(g=>addScene(g,false));
   toast(`Imported ${groups.length} scenes.`);
 }
-const SAMPLE=`INT. DINER - NIGHT
-
-Rain sheets down the windows. A neon sign buzzes OPEN, half the letters dead.
-
-MARGO (50s), a waitress who has seen everything twice, refills a coffee nobody asked for.
-
-MARGO
-You've been nursing that cup for an hour.
-
-DEV (20s), soaked, clutching a battered film canister, doesn't look up.
-
-DEV
-(quietly)
-I'm waiting for someone.
-
-MARGO
-Everybody's waiting for someone, hon.
-
-The door CHIMES. Dev's head snaps toward it.
-
-CUT TO:
-
-EXT. DINER PARKING LOT - CONTINUOUS
-
-Headlights sweep across the lot. A black sedan idles, wipers beating.`;
 
 /* ---------- storyboard ---------- */
 function onPanels(snap){
@@ -591,7 +568,7 @@ function renderSheet(){
    ${S.canWrite?`<div style="margin-top:8px;max-width:420px"><select class="field" id="addSc"><option value="">+ Add a scene from the script…</option>${S.scenes.filter(s=>!(sh.scenes||[]).includes(s.id)).map(s=>`<option value="${s.id}">${sceneNo(s.id)}. ${esc(heading(s)||"Untitled scene")}</option>`).join("")}</select></div>`:""}
    <h3>Cast</h3>
    <div class="tw"><table class="t"><thead><tr><th>#</th><th>Character</th><th>Cast member</th><th>Status</th><th>Pickup</th><th>Hair/MU</th><th>On set</th></tr></thead><tbody>
-    ${chars.map(c=>{ const r=cast[c]||{}; return `<tr><td><b>${nums[c]||""}</b></td><td class="mono">${esc(c)}</td><td><input data-actor="${esc(c)}" value="${esc(S.actors[c]||"")}" placeholder="Name" ${dis}></td>
+    ${chars.map(c=>{ const r=cast[c]||{}; return `<tr><td><b>${nums[c]||""}</b></td><td class="mono"><button class="linkbtn" data-goch="${esc(c)}" title="Open character sheet">${esc(c)}</button></td><td><input data-actor="${esc(c)}" value="${esc(S.actors[c]||"")}" placeholder="Name" ${dis}></td>
       <td><select data-cast="${esc(c)}" data-k="status" ${dis}><option value="">—</option>${STATUS.map(([k,l])=>`<option value="${k}" ${r.status===k?"selected":""} title="${l}">${k}</option>`).join("")}</select></td>
       <td><input type="time" data-cast="${esc(c)}" data-k="pickup" value="${esc(r.pickup||"")}" ${dis}></td><td><input type="time" data-cast="${esc(c)}" data-k="hmu" value="${esc(r.hmu||"")}" ${dis}></td><td><input type="time" data-cast="${esc(c)}" data-k="set" value="${esc(r.set||"")}" ${dis}></td></tr>`; }).join("")||`<tr><td colspan="7" class="muted">Cast appears here from the characters who speak in the scheduled scenes.</td></tr>`}
    </tbody></table></div>
@@ -649,7 +626,7 @@ async function renderPeople(){
   if(S.user&&ids.length){ try{ S.profiles=await S.user.profiles(ids); }catch(e){} }
   const box=$("#people"); box.innerHTML="";
   const uniq=[]; const seen=new Set(); S.peers.forEach(p=>{ const k=p.by||p.peer; if(!seen.has(k)){ seen.add(k); uniq.push(p);} });
-  const where={script:"Script",board:"Storyboard",calls:"Call sheets"};
+  const where={script:"Script",chars:"Characters",board:"Storyboard",calls:"Call sheets"};
   uniq.slice(0,6).forEach(p=>{ const pr=prof(p.by); const im=document.createElement("img"); im.className="av"; im.src=pr.avatarUrl||""; im.alt=""; im.style.borderColor=pr.color; im.title=`${p.isMe?"You":(pr.name||"Someone")} · ${where[p.presence&&p.presence.view]||"Here"}`; box.appendChild(im); });
   if(uniq.length>6){ const s=document.createElement("span"); s.className="hint"; s.style.marginLeft="6px"; s.textContent="+"+(uniq.length-6); box.appendChild(s); }
   renderNav(); renderHere();
@@ -658,17 +635,17 @@ async function renderPeople(){
 /* ---------- views & events ---------- */
 function setView(v){
   S.view=v; $$(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.view===v?"true":"false"));
-  ["script","board","calls"].forEach(n=>$("#v-"+n).hidden=n!==v);
-  if(v==="board") renderBoard(); if(v==="calls") renderSheet();
+  ["script","chars","board","calls"].forEach(n=>$("#v-"+n).hidden=n!==v);
+  if(v==="board") renderBoard(); if(v==="calls") renderSheet(); if(v==="chars") renderChars();
   try{ localStorage.setItem("backlot.view",v); }catch(e){}
   announce();
 }
 function applyReadOnly(){
   $$("#scenes .blk").forEach(b=>b.contentEditable=S.canWrite?(PO?"plaintext-only":"true"):"false");
-  $("#ptitle").disabled=!S.canWrite; ["#addScene","#importBtn","#startScript","#sampleScript"].forEach(s=>$(s).disabled=!S.canWrite);
+  $("#ptitle").disabled=!S.canWrite; ["#addScene","#importBtn","#startScript","#emptyImport","#clearScript"].forEach(s=>$(s).disabled=!S.canWrite);
   renderTypes(); renderRev(); renderNav();
   if(!S.canWrite){ const b=$("#banner"); b.hidden=false; b.textContent="You have view access. Ask the project owner for edit access to write, draw shots or change call times."; }
-  if(S.view==="board") renderBoard(); if(S.view==="calls") renderSheet();
+  if(S.view==="board") renderBoard(); if(S.view==="calls") renderSheet(); if(S.view==="chars") renderChars();
 }
 
 root.addEventListener("click",e=>{
@@ -676,6 +653,7 @@ root.addEventListener("click",e=>{
   const d=t.dataset;
   if(d.view) setView(d.view);
   else if(d.goview) setView(d.goview);
+  else if(d.goch){ S.curChar=ckey(d.goch); setView("chars"); }
   else if(d.go){ const sc=S.map[d.go]; if(sc){ setView("script"); focusBlock(d.go,0); $(`#scenes section.scene[data-id="${d.go}"]`).scrollIntoView({block:"start",behavior:"smooth"}); } }
   else if(d.up) moveScene(d.up,-1);
   else if(d.down) moveScene(d.down,1);
@@ -733,7 +711,7 @@ scenesBox.addEventListener("focusout",e=>{
 $("#types").addEventListener("mousedown",e=>{ if(e.target.closest("button")) e.preventDefault(); });
 $("#addScene").onclick=()=>addScene();
 $("#startScript").onclick=()=>addScene();
-$("#sampleScript").onclick=()=>importText(SAMPLE);
+$("#emptyImport").onclick=()=>$("#importFile").click();
 $("#importBtn").onclick=()=>$("#importFile").click();
 $("#importFile").onchange=e=>{ const f=e.target.files[0]; e.target.value=""; if(!f) return; const r=new FileReader(); r.onload=()=>importText(String(r.result)); r.readAsText(f); };
 $("#exportBtn").onclick=()=>saveFile(((S.meta.title||"screenplay").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-")||"screenplay")+".fountain", toFountain());
@@ -992,10 +970,210 @@ root.addEventListener("click",e=>{
 });
 root.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["hov","pdfov"].forEach(id=>{ const o=$("#"+id); if(o&&!o.hidden) o.hidden=true; }); } });
 
+/* ---------- characters ---------- */
+const ROLES=["Lead","Supporting","Featured","Day player","Background"];
+const CASTING=["Not cast","Auditioning","Offered","Confirmed"];
+const ckey = n => String(n||"").toUpperCase().replace(/[^\p{L}\p{N}]+/gu,"_").replace(/^_+|_+$/g,"")||"X";
+const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+function charStats(names){
+  const st={}; const get=n=>st[n]||(st[n]={scenes:[],speaks:{},lines:0,words:0});
+  const res=names.map(n=>[n,new RegExp("(^|[^\\p{L}\\p{N}])"+reEsc(n)+"(?=$|[^\\p{L}\\p{N}])","iu")]);
+  S.scenes.forEach(sc=>{
+    let cur=null;
+    sc.blocks.forEach(b=>{
+      if(b.t==="character"){ cur=cleanChar(b.x)||null; if(!cur) return; const s=get(cur); if(!s.scenes.includes(sc.id)) s.scenes.push(sc.id); s.speaks[sc.id]=(s.speaks[sc.id]||0)+1; s.lines++; }
+      else if(b.t==="dialogue"&&cur){ get(cur).words+=(b.x.match(/\S+/g)||[]).length; }
+      else if(b.t!=="paren") cur=null;
+      if(b.t==="action"&&b.x) res.forEach(([n,re])=>{ if(re.test(b.x)){ const s=get(n); if(!s.scenes.includes(sc.id)) s.scenes.push(sc.id); } });
+    });
+  });
+  Object.values(st).forEach(s=>s.scenes.sort((a,b)=>sceneNo(a)-sceneNo(b)));
+  return st;
+}
+function allChars(){
+  const nums=castNumbers();
+  const names=[...new Set([...Object.keys(nums),...Object.values(S.chars).map(c=>c&&c.name).filter(Boolean)])];
+  const st=charStats(names);
+  return names.map(n=>({name:n,key:ckey(n),num:nums[n]||null,st:st[n]||{scenes:[],speaks:{},lines:0,words:0},p:S.chars[ckey(n)]||null}))
+    .sort((a,b)=>(a.num||9999)-(b.num||9999)||a.name.localeCompare(b.name));
+}
+const chFocused=()=>{ const w=$("#chWrap"); return w.contains(document.activeElement)&&document.activeElement!==document.body; };
+function onChars(snap){
+  const m={}; snap.docs.forEach(d=>{ m[d.id]=clone(d.data()); }); S.chars=m;
+  if(S.view==="chars"){ if(chFocused()) S.chStale=true; else renderChars(); }
+}
+function patchChar(c, fields){
+  if(!S.canWrite) return;
+  const stamp={by:S.myId||null,at:Date.now()};
+  const ex=S.chars[c.key];
+  if(ex){ Object.assign(ex,clone(fields),stamp); write("characters/"+c.key, r=>r.update({...fields,...stamp})); }
+  else { const d={name:c.name,...fields,...stamp}; S.chars[c.key]=d; write("characters/"+c.key, r=>r.set(d)); }
+}
+function curChar(list){ list=list||allChars(); return list.find(c=>c.key===S.curChar)||list[0]||null; }
+function renderCharList(list){
+  const q=($("#chSearch").value||"").trim().toUpperCase();
+  const shown=list.filter(c=>!q||c.name.includes(q)||((S.actors[c.name]||"").toUpperCase().includes(q)));
+  $("#chList").innerHTML=shown.length?shown.map(c=>{
+    const p=c.p||{}; const sub=[p.role, c.st.scenes.length?`${c.st.scenes.length} sc`:"", c.st.lines?`${c.st.lines} line${c.st.lines===1?"":"s"}`:""].filter(Boolean).join(" · ")||"No lines yet";
+    return `<button class="d chd ${c.key===S.curChar?"cur":""}" data-ch="${esc(c.key)}">${p.photo?`<img src="${esc(p.photo)}" alt="">`:`<span class="chav">${esc(c.name.slice(0,1))}</span>`}<span><span class="chn">${c.num?c.num+". ":""}${esc(c.name)}</span><small>${esc(sub)}${S.actors[c.name]?" · "+esc(S.actors[c.name]):""}</small></span></button>`;
+  }).join(""):`<p class="hint" style="margin:6px">${list.length?"No match.":"No characters yet. Anyone who speaks in the script shows up here."}</p>`;
+}
+function renderChars(){
+  S.chStale=false;
+  const list=allChars(); const c=curChar(list); S.curChar=c&&c.key;
+  renderCharList(list);
+  $("#chAdd").hidden=!S.canWrite;
+  const w=$("#chWrap");
+  if(!c){ w.innerHTML=`<div class="sheet"><div class="empty"><h2>Meet your characters</h2><p style="margin:0">Every character who speaks in the script gets a sheet here automatically. You can also add characters who don't speak.</p><button class="btn primary" data-goview="script">Go to Script</button></div></div>`; return; }
+  const p=c.p||{}; const dis=S.canWrite?"":"disabled";
+  const rels=Array.isArray(p.rels)?p.rels:[];
+  const v=k=>esc(p[k]||"");
+  const ta=(k,label,ph,rows=3)=>`<label class="${rows>2?"full":""}">${label}<textarea class="field" data-cf="${k}" rows="${rows}" placeholder="${esc(ph)}" ${dis}>${v(k)}</textarea></label>`;
+  const inp=(k,label,ph,type="text")=>`<label>${label}<input class="field" type="${type}" data-cf="${k}" value="${v(k)}" placeholder="${esc(ph)}" ${dis}></label>`;
+  const sel=(k,label,opts)=>`<label>${label}<select class="field" data-cf="${k}" ${dis}><option value="">—</option>${opts.map(o=>`<option ${p[k]===o?"selected":""}>${esc(o)}</option>`).join("")}</select></label>`;
+  const others=list.filter(x=>x.key!==c.key).map(x=>x.name);
+  w.innerHTML=`<div class="sheet-tools"><button class="btn" id="chPrint">Print / PDF</button><button class="btn" id="chPrintAll">Print cast list</button>${S.canWrite&&c.p?`<button class="btn danger" id="chDel">Clear sheet</button>`:""}</div>
+  <div class="sheet ch">
+    <div class="ch-head">
+      <button class="ch-photo" id="chPhoto" ${dis} aria-label="${p.photo?"Change photo":"Add photo"}">${p.photo?`<img src="${esc(p.photo)}" alt="${esc(c.name)}">`:`<span>+ Photo or<br>reference image</span>`}</button>
+      <div class="ch-id">
+        <span class="eyebrow">${c.num?`Cast #${c.num}`:"Not speaking in the script yet"}</span>
+        <div class="cs-title">${esc(c.name)}</div>
+        <div class="chips">${c.st.scenes.length?`<span class="chip">${c.st.scenes.length} scene${c.st.scenes.length===1?"":"s"}</span>`:""}${c.st.lines?`<span class="chip dim">${c.st.lines} speech${c.st.lines===1?"":"es"}</span><span class="chip dim">${c.st.words.toLocaleString()} words</span>`:""}${c.st.scenes[0]?`<span class="chip dim">First seen: sc. ${sceneNo(c.st.scenes[0])}</span>`:""}${S.actors[c.name]?`<span class="chip">Played by ${esc(S.actors[c.name])}</span>`:""}</div>
+        <div class="chf row3">${sel("role","Role",ROLES)}${inp("age","Age","30s")}${inp("pronouns","Pronouns","she/her")}</div>
+      </div>
+    </div>
+    <div class="chf one"><label>One-line description<input class="field" data-cf="logline" value="${v("logline")}" placeholder="A waitress who has seen everything twice" ${dis}></label></div>
+    <h3>Story</h3>
+    <div class="chf">${ta("backstory","Backstory","Where they come from and what shaped them",4)}${ta("want","Wants","What they're chasing",2)}${ta("need","Needs","What they actually need",2)}${ta("arc","Arc","How they change from start to end",2)}${ta("voice","Voice","How they talk: rhythm, slang, catchphrases",2)}</div>
+    <h3>Relationships ${S.canWrite?`<button class="btn" id="relAdd">+ Add relationship</button>`:""}</h3>
+    <datalist id="chNames">${others.map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
+    <div class="tw"><table class="t"><thead><tr><th>Character</th><th>Relationship</th><th></th></tr></thead><tbody>
+      ${rels.map((r,k)=>`<tr><td><input list="chNames" data-rel="${k}" data-k="who" value="${esc(r.who||"")}" placeholder="Name" ${dis}></td><td><input data-rel="${k}" data-k="what" value="${esc(r.what||"")}" placeholder="Older sister, rival, ex…" ${dis}></td><td>${S.canWrite?`<button class="x" data-rmrel="${k}" aria-label="Remove relationship">✕</button>`:""}</td></tr>`).join("")||`<tr><td colspan="3" class="muted">No relationships yet.</td></tr>`}
+    </tbody></table></div>
+    <h3>Look</h3>
+    <div class="chf">${ta("wardrobe","Wardrobe","Costume pieces, changes by scene",2)}${ta("hmu","Hair & makeup","Hair, makeup, special FX, continuity",2)}${ta("props","Props","What they carry",2)}${ta("look","Physical notes","Height, build, scars, tattoos",2)}</div>
+    <h3>Casting</h3>
+    <div class="chf">
+      <label>Played by<input class="field" data-cactor value="${esc(S.actors[c.name]||"")}" placeholder="Actor's name" ${dis}></label>
+      ${sel("casting","Status",CASTING)}
+      ${inp("phone","Phone","(555) 555-0100","tel")}${inp("email","Email","actor@email.com","email")}
+      ${inp("agent","Agent / manager","Name and contact")}${inp("sizes","Sizes","Shirt, pants, shoes")}
+    </div>
+    <p class="hint" style="margin:6px 0 0">The actor's name also fills in on every call sheet that has this character.</p>
+    <h3>Scenes</h3>
+    <div class="tw"><table class="t"><thead><tr><th>Sc.</th><th>Heading</th><th>D/N</th><th>Speeches</th><th>Pages</th></tr></thead><tbody>
+      ${c.st.scenes.map(id=>{ const sc=S.map[id]; if(!sc) return ""; return `<tr><td><b>${sceneNo(id)}</b></td><td class="mono"><button class="linkbtn" data-go="${id}">${esc(heading(sc)||"Untitled scene")}</button></td><td>${esc(dayNight(heading(sc)))}</td><td>${c.st.speaks[id]||"—"}</td><td>${eighthsStr(eighths(sc))}</td></tr>`; }).join("")||`<tr><td colspan="5" class="muted">Not in any scene yet. Scenes appear here when the character speaks or is named in the action.</td></tr>`}
+    </tbody></table></div>
+    <h3>Notes</h3>
+    <div class="chf one">${ta("notes","Notes","Anything else the team should know",3)}</div>
+  </div>`;
+}
+async function shrinkImage(file, max=900){
+  const url=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); });
+  const im=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+  const s=Math.min(1,max/Math.max(im.width,im.height)); const c=document.createElement("canvas");
+  c.width=Math.round(im.width*s); c.height=Math.round(im.height*s); c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+  return await new Promise(r=>c.toBlob(r,"image/jpeg",0.85));
+}
+$("#chList").addEventListener("click",e=>{ const b=e.target.closest("[data-ch]"); if(!b) return; S.curChar=b.dataset.ch; renderChars(); $("#chWrap").scrollIntoView({block:"nearest"}); });
+$("#chSearch").addEventListener("input",()=>renderCharList(allChars()));
+$("#chAdd").addEventListener("submit",e=>{
+  e.preventDefault(); const name=cleanChar($("#chNew").value); if(!name) return;
+  const c={name,key:ckey(name)}; if(!S.chars[c.key]&&!castNumbers()[name]) patchChar(c,{});
+  S.curChar=c.key; $("#chNew").value=""; renderChars();
+});
+$("#chWrap").addEventListener("change",e=>{
+  const el=e.target, d=el.dataset; const c=curChar(); if(!c||!S.canWrite) return;
+  if(d.cf){ patchChar(c,{[d.cf]:el.value.trim()}); if(d.cf==="role") renderCharList(allChars()); return; }
+  if(el.hasAttribute("data-cactor")){ S.actors[c.name]=el.value.trim(); write("project/cast",r=>r.set({actors:{...S.actors}})); renderCharList(allChars()); return; }
+  if(d.rel!=null){ const rels=((c.p&&c.p.rels)||[]).map(r=>({...r})); if(!rels[+d.rel]) return; rels[+d.rel][d.k]=d.k==="who"?cleanChar(el.value):el.value.trim(); patchChar(c,{rels}); }
+});
+$("#chWrap").addEventListener("focusout",()=>setTimeout(()=>{ if(S.chStale&&!chFocused()) renderChars(); },0));
+$("#chWrap").addEventListener("click",e=>{
+  const t=e.target.closest("button"); if(!t) return; const c=curChar(); if(!c) return;
+  if(t.id==="chPhoto"){ if(S.canWrite) $("#chFile").click(); }
+  else if(t.id==="relAdd"){ patchChar(c,{rels:((c.p&&c.p.rels)||[]).concat([{who:"",what:""}])}); renderChars(); }
+  else if(t.dataset.rmrel!=null){ const rels=((c.p&&c.p.rels)||[]).slice(); rels.splice(+t.dataset.rmrel,1); patchChar(c,{rels}); renderChars(); }
+  else if(t.id==="chDel"){ confirmBox(`Clear ${c.name}'s character sheet? ${c.num?"They stay in the list while they have lines in the script.":"They'll be removed from the list."}`,"Clear").then(ok=>{ if(!ok) return; delete S.chars[c.key]; write("characters/"+c.key,r=>r.delete()); renderChars(); }); }
+  else if(t.id==="chPrint") printChars([c]);
+  else if(t.id==="chPrintAll") printCastList();
+});
+$("#chFile").onchange=async e=>{
+  const f=e.target.files[0]; e.target.value=""; const c=curChar(); if(!f||!c) return;
+  const b=$("#chPhoto"); if(b){ b.disabled=true; b.classList.add("busy"); }
+  try{ const blob=await shrinkImage(f); const url=await uploadFrame(blob); patchChar(c,{photo:url}); toast("Photo saved."); }
+  catch(err){ console.warn(err); toast("That photo couldn't be uploaded. Try a JPG or PNG."); }
+  renderChars();
+};
+
+/* character print */
+const CHAR_PRINT_CSS=`
+#olm-print .cp{color:#000;background:#fff;font:11pt/1.45 "IBM Plex Sans",Arial,sans-serif;page-break-after:always;break-after:page}
+#olm-print .cp:last-child{page-break-after:auto;break-after:auto}
+#olm-print .cp-head{display:flex;gap:18px;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:12px}
+#olm-print .cp-head img{width:1.6in;height:2in;object-fit:cover;border:1px solid #999}
+#olm-print .cp-proj{font-size:9pt;letter-spacing:.08em;text-transform:uppercase;color:#555}
+#olm-print .cp h1{font:700 26pt/1.1 "Courier Prime","Courier New",monospace;margin:4px 0 6px}
+#olm-print .cp h2{font-size:10pt;letter-spacing:.08em;text-transform:uppercase;margin:14px 0 4px;border-bottom:1px solid #999;padding-bottom:2px;break-after:avoid}
+#olm-print .cp dl{display:grid;grid-template-columns:1.4in 1fr;gap:3px 12px;margin:0}
+#olm-print .cp dt{font-weight:600;color:#333}
+#olm-print .cp dd{margin:0;white-space:pre-wrap}
+#olm-print .cp table{width:100%;border-collapse:collapse;font-size:10pt}
+#olm-print .cp th,#olm-print .cp td{text-align:left;border-bottom:1px solid #ccc;padding:3px 6px;vertical-align:top}
+#olm-print .cp th{font-size:8.5pt;text-transform:uppercase;letter-spacing:.06em}
+`;
+function ensurePrintHost(){
+  let host=document.getElementById("olm-print");
+  if(!host){ host=document.createElement("div"); host.id="olm-print"; document.body.appendChild(host); const st=document.createElement("style"); st.id="olm-print-css"; st.textContent=PRINT_CSS; document.head.appendChild(st); }
+  if(!document.getElementById("olm-print-chars")){ const st=document.createElement("style"); st.id="olm-print-chars"; st.textContent=CHAR_PRINT_CSS; document.head.appendChild(st); }
+  return host;
+}
+async function printPages(html, title){
+  const host=ensurePrintHost(); host.innerHTML=html;
+  const pg=document.createElement("style"); pg.textContent="@media print{@page{margin:.6in}}"; document.head.appendChild(pg);
+  await Promise.all([...host.querySelectorAll("img")].map(im=>im.complete?null:new Promise(r=>{ im.onload=im.onerror=r; setTimeout(r,4000); })));
+  const old=document.title; document.title=title;
+  setTimeout(()=>{ window.print(); document.title=old; pg.remove(); },60);
+}
+function charPrintHTML(c){
+  const p=c.p||{}; const dl=rows=>{ const r=rows.filter(([,x])=>x&&String(x).trim()); return r.length?`<dl>${r.map(([k,x])=>`<dt>${esc(k)}</dt><dd>${esc(x)}</dd>`).join("")}</dl>`:""; };
+  const sec=(t,body)=>body?`<h2>${esc(t)}</h2>${body}`:"";
+  const rels=(p.rels||[]).filter(r=>r.who||r.what);
+  const scenes=c.st.scenes.map(id=>S.map[id]).filter(Boolean);
+  return `<div class="cp"><div class="cp-head">${p.photo?`<img src="${esc(p.photo)}" alt="">`:""}<div><div class="cp-proj">${esc(S.meta.title||"Untitled project")} · Character sheet</div><h1>${esc(c.name)}</h1>
+    <div>${esc([p.role,p.age,p.pronouns,c.num?"Cast #"+c.num:""].filter(Boolean).join(" · "))}</div>${p.logline?`<div style="margin-top:6px"><i>${esc(p.logline)}</i></div>`:""}</div></div>
+    ${sec("Story",dl([["Backstory",p.backstory],["Wants",p.want],["Needs",p.need],["Arc",p.arc],["Voice",p.voice]]))}
+    ${sec("Relationships",rels.length?dl(rels.map(r=>[r.who||"—",r.what||""])):"")}
+    ${sec("Look",dl([["Wardrobe",p.wardrobe],["Hair & makeup",p.hmu],["Props",p.props],["Physical notes",p.look]]))}
+    ${sec("Casting",dl([["Played by",S.actors[c.name]],["Status",p.casting],["Phone",p.phone],["Email",p.email],["Agent / manager",p.agent],["Sizes",p.sizes]]))}
+    ${sec("Scenes",scenes.length?`<table><thead><tr><th>Sc.</th><th>Heading</th><th>Speeches</th><th>Pages</th></tr></thead><tbody>${scenes.map(sc=>`<tr><td>${sceneNo(sc.id)}</td><td>${esc(heading(sc)||"Untitled scene")}</td><td>${c.st.speaks[sc.id]||"—"}</td><td>${eighthsStr(eighths(sc))}</td></tr>`).join("")}</tbody></table>`:"")}
+    ${sec("Notes",p.notes?`<div style="white-space:pre-wrap">${esc(p.notes)}</div>`:"")}
+  </div>`;
+}
+function printChars(list){ printPages(list.map(charPrintHTML).join(""), (list.length===1?list[0].name:"Characters")+" - "+(S.meta.title||"Backlot")); }
+function printCastList(){
+  const list=allChars();
+  const html=`<div class="cp"><div class="cp-head"><div><div class="cp-proj">${esc(S.meta.title||"Untitled project")}</div><h1>Cast list</h1><div>${list.length} characters</div></div></div>
+   <table><thead><tr><th>#</th><th>Character</th><th>Role</th><th>Played by</th><th>Status</th><th>Phone</th><th>Email</th><th>Scenes</th></tr></thead><tbody>
+   ${list.map(c=>{ const p=c.p||{}; return `<tr><td>${c.num||""}</td><td><b>${esc(c.name)}</b></td><td>${esc(p.role||"")}</td><td>${esc(S.actors[c.name]||"")}</td><td>${esc(p.casting||"")}</td><td>${esc(p.phone||"")}</td><td>${esc(p.email||"")}</td><td>${c.st.scenes.length||""}</td></tr>`; }).join("")}
+   </tbody></table></div>`;
+  printPages(html, "Cast list - "+(S.meta.title||"Backlot"));
+}
+
+/* clear the whole script (saved to History first) */
+$("#clearScript").onclick=async()=>{
+  if(!S.canWrite||!S.scenes.length) { toast("The script is already empty."); return; }
+  if(!await confirmBox(`Delete all ${S.scenes.length} scenes? A copy is saved in History first, so you can restore it. Storyboard shots stay under "Unassigned".`,"Clear script")) return;
+  if(adapters.versions){ try{ await saveVersion("Before clearing the script",false); }catch(e){ toast("Couldn't save a copy to History first, so nothing was deleted."); return; } }
+  S.scenes.slice().forEach(s=>deleteScene(s.id,true));
+  toast("Script cleared. Use History to bring it back.");
+};
+
 /* ---------- boot ---------- */
 function renderAll(){ renderScript(); renderTypes(); renderRev(); }
 async function boot(){
-  try{ const v=localStorage.getItem("backlot.view"); if(v&&["script","board","calls"].includes(v)) setView(v); }catch(e){}
+  try{ const v=localStorage.getItem("backlot.view"); if(v&&["script","chars","board","calls"].includes(v)) setView(v); }catch(e){}
   renderAll(); setStatus();
   const {db,user,room}=wrapped; const dl=downloads;
   S.db=db; S.user=user; S.room=room; S.dl=dl;
@@ -1010,8 +1188,9 @@ async function boot(){
   db.collection("scenes").orderBy("order").onSnapshot(onScenes,err);
   db.collection("panels").onSnapshot(onPanels,err);
   db.collection("callsheets").onSnapshot(onSheets,err);
+  db.collection("characters").onSnapshot(onChars,err);
   db.doc("project/meta").onSnapshot(s=>{ if(document.activeElement===$("#ptitle")) return; S.meta=s.exists?clone(s.data()):{}; $("#ptitle").value=S.meta.title||""; renderRev(); },err);
-  db.doc("project/cast").onSnapshot(s=>{ S.actors=s.exists?clone(s.data().actors)||{}:{}; if(S.view==="calls"&&!sheetFocused()) renderSheet(); },err);
+  db.doc("project/cast").onSnapshot(s=>{ S.actors=s.exists?clone(s.data().actors)||{}:{}; if(S.view==="calls"&&!sheetFocused()) renderSheet(); if(S.view==="chars"&&!chFocused()) renderChars(); },err);
   setStatus();
   if(adapters.versions){ adapters.versions.list(1).then(v=>{ S.lastVersionAt=v[0]?new Date(v[0].created_at).getTime():0; }).catch(()=>{}); }
   if(room){

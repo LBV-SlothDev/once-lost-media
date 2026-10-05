@@ -212,3 +212,30 @@
 .backlot .hprevbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .backlot .hpage{min-height:0;max-height:60vh;overflow:auto;padding:3em 3em 3em 6em}
 .backlot #cov{z-index:70}
+
+/* characters */
+.backlot .linkbtn{background:none;border:0;padding:0;color:inherit;font:inherit;text-transform:inherit;cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.backlot .linkbtn:hover{text-decoration-color:var(--accent);color:var(--accent)}
+.backlot .chd{grid-template-columns:34px minmax(0,1fr)!important;align-items:center;gap:9px!important}
+.backlot .chd img,.backlot .chd .chav{width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--paper);display:grid;place-items:center;font:700 14px var(--f-script);color:var(--muted)}
+.backlot .chd > span:last-child{display:grid;min-width:0}
+.backlot .chn{font-family:var(--f-script);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.backlot .chd small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.backlot .chadd{display:flex;gap:6px;margin-top:8px}
+.backlot .ch-head{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:12px}
+.backlot .ch-photo{aspect-ratio:3/4;width:100%;border:1.5px dashed var(--line);border-radius:6px;background:var(--surface);color:var(--muted);font-size:12px;padding:0;overflow:hidden;cursor:pointer}
+.backlot .ch-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.backlot .ch-photo:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.backlot .ch-photo:disabled{cursor:default}
+.backlot .ch-photo.busy{opacity:.5}
+.backlot .ch-id{display:grid;gap:8px;align-content:start;min-width:0}
+.backlot .chf{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.backlot .chf.row3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.backlot .chf.one{grid-template-columns:minmax(0,1fr)}
+.backlot .chf label{display:grid;gap:2px;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;min-width:0}
+.backlot .chf .full{grid-column:1/-1}
+.backlot .chf textarea{resize:vertical;text-transform:none;letter-spacing:0;font-weight:400}
+@media (max-width:560px){
+  .backlot .ch-head{grid-template-columns:96px minmax(0,1fr)}
+  .backlot .chf,.backlot .chf.row3{grid-template-columns:minmax(0,1fr)}
+}
