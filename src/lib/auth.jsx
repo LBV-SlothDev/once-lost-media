@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
     let alive = true;
     /* The site owner is the only one who can manage the journal and films. */
     const apply = async (user) => {
+      if (user && user.email) { try { localStorage.setItem("olm.lastEmail", user.email); } catch {} }
       const isOwner = user ? await api.isOwner().catch(() => false) : false;
       if (alive) setState({ user, loading: false, isOwner });
     };

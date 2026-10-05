@@ -164,12 +164,14 @@ export function Post({ slug }) {
 export function Login() {
   const { user } = useAuth();
   const { navigate } = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => { try { return localStorage.getItem("olm.lastEmail") || ""; } catch { return ""; } });
   const [state, setState] = useState({ busy: false, sent: false, error: null });
+  const remembered = (() => { try { return localStorage.getItem("olm.lastEmail") || ""; } catch { return ""; } })();
   useEffect(() => { if (user) navigate("/studio", { replace: true }); }, [user, navigate]);
   const submit = async (e) => {
     e.preventDefault();
     setState({ busy: true, sent: false, error: null });
+    try { localStorage.setItem("olm.lastEmail", email.trim()); } catch {}
     try {
       const r = await api.signIn(email.trim());
       setState({ busy: false, sent: !(r && r.instant), error: null });
@@ -188,8 +190,10 @@ export function Login() {
       ) : (
         <form className="card fm" onSubmit={submit}>
           <label htmlFor="login-email">Work email</label>
-          <input id="login-email" className="input" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@oncelostmedia.com" />
+          {remembered && email === remembered && <p className="hint">Welcome back. Your email is filled in, so just send the link.</p>}
+          <input id="login-email" className="input" type="email" required autoComplete="email" autoFocus={!remembered} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@oncelostmedia.com" />
           <ErrorNote error={state.error} />
+          {remembered && email === remembered && <button type="button" className="linkish" style={{ justifySelf: "start" }} onClick={() => { setEmail(""); try { localStorage.removeItem("olm.lastEmail"); } catch {} }}>Not you? Use a different email</button>}
           <button className="btn gold" disabled={state.busy}>{state.busy ? "Sending…" : DEMO ? "Enter the Studio (demo)" : "Email me a sign-in link"}</button>
           <p className="hint">{DEMO ? "Demo mode: any email works and nothing leaves this browser." : "Only people the site owner has invited can sign in."}</p>
         </form>
