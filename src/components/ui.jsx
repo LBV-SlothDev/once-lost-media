@@ -147,11 +147,27 @@ export function PostCard({ post, big }) {
 }
 
 /* A strip of film that keeps running across the page. */
-export function RunningStrip({ films }) {
-  const imgs = films.filter((f) => f.poster_url).map((f) => f.poster_url);
-  const cells = Array.from({ length: 12 }, (_, i) => imgs.length ? imgs[i % imgs.length] : null);
+/* Free behind-the-scenes stills from Unsplash (free to use, no credit required), shown straight from Unsplash. */
+const STILLS = [
+  "1485846234645-a62644f84728", "1612544409025-e1f6a56c1152", "1515634928627-2a4e0dae3ddf",
+  "1632187981988-40f3cbaeef5e", "1782889187454-a568fe1f20e2", "1594909122845-11baa439b7bf",
+  "1759417501248-0aa9489dab3f", "1471341971476-ae15ff5dd4ea", "1611784728558-6c7d9b409cdf",
+  "1681137063068-081072cf04b4", "1518930259200-3e5b29f42096", "1632187989763-c9c620420b4d",
+].map((id) => `https://images.unsplash.com/photo-${id}?w=420&h=236&fit=crop&q=60&auto=format`);
+
+export function RunningStrip({ films = [], posts = [] }) {
+  // Our own images (film posters and journal covers) are spread evenly between the stills.
+  const ours = [...films.filter((f) => f.poster_url).map((f) => f.poster_url), ...posts.filter((p) => p.cover_url).map((p) => p.cover_url)];
+  const cells = [];
+  const every = ours.length ? Math.max(1, Math.round(STILLS.length / ours.length)) : 0;
+  let o = 0;
+  STILLS.forEach((src, i) => {
+    cells.push(src);
+    if (every && (i + 1) % every === 0 && o < ours.length) cells.push(ours[o++]);
+  });
+  while (o < ours.length) cells.push(ours[o++]);
   const row = cells.map((src, i) => (
-    <div className="strip-cell" key={i}>{src ? <img src={src} alt="" /> : <img className="ghost" src={asset("emblem.png")} alt="" />}</div>
+    <div className="strip-cell" key={i}><img src={src} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /></div>
   ));
   return (
     <div className="strip" aria-hidden="true">

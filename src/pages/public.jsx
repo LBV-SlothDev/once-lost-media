@@ -24,7 +24,7 @@ export function Home() {
         </div>
       </section>
 
-      <RunningStrip films={f} />
+      <RunningStrip films={f} posts={p} />
 
       <section className="band">
         <div className="band-head">
