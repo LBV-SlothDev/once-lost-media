@@ -119,7 +119,7 @@ main { display: block; }
 .post-list { display: grid; gap: 28px; max-width: 900px; }
 .post-list .post-card { grid-template-columns: minmax(0, 260px) minmax(0, 1fr); }
 .post-card { display: grid; gap: 14px; align-content: start; color: var(--ink); text-decoration: none !important; min-width: 0; }
-.post-cover { aspect-ratio: 3/2; overflow: hidden; border-radius: var(--radius); background: var(--panel); }
+.post-cover { aspect-ratio: 16/9; overflow: hidden; border-radius: var(--radius); background: var(--panel); }
 .post-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
 .post-card:hover .post-cover img { transform: scale(1.03); }
 .post-body time { font-size: 13px; color: var(--gold); letter-spacing: .06em; text-transform: uppercase; font-weight: 600; }
@@ -193,7 +193,7 @@ textarea.input { resize: vertical; }
 .slug span { color: var(--muted); font-size: 14px; }
 .slug .input { border: 0; background: transparent; padding-left: 2px; }
 .cover-pick { display: grid; gap: 8px; align-content: start; }
-.cover-box { aspect-ratio: 3/2; border: 1.5px dashed var(--line); border-radius: var(--radius); background: var(--bg-2); color: var(--muted); display: grid; place-items: center; padding: 0; overflow: hidden; text-align: center; font-size: 14px; }
+.cover-box { aspect-ratio: 16/9; border: 1.5px dashed var(--line); border-radius: var(--radius); background: var(--bg-2); color: var(--muted); display: grid; place-items: center; padding: 0; overflow: hidden; text-align: center; font-size: 14px; }
 .cover-box.wide { aspect-ratio: 16/9; }
 .cover-box span { padding: 16px; }
 .cover-box img { width: 100%; height: 100%; object-fit: cover; }
