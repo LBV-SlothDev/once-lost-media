@@ -167,7 +167,7 @@ export function RunningStrip({ films = [], posts = [] }) {
   });
   while (o < ours.length) cells.push(ours[o++]);
   const row = cells.map((src, i) => (
-    <div className="strip-cell" key={i}><img src={src} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /></div>
+    <div className="strip-cell" key={i}><img src={src} alt="" decoding="async" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} /></div>
   ));
   return (
     <div className="strip" aria-hidden="true">
