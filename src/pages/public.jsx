@@ -381,6 +381,74 @@ export function BacklotLanding() {
   );
 }
 
+export function About() {
+  useEffect(() => { document.title = "About · Once Lost Media"; return () => { document.title = "Once Lost Media"; }; }, []);
+  return (
+    <main className="about">
+      <section className="about-hero">
+        <div className="hero-beam" aria-hidden="true" />
+        <p className="eyebrow">About Once Lost Media</p>
+        <h1>I once was lost,<br />but now am found.</h1>
+        <p className="about-lede">Some stories slip through the cracks. The ones nobody wrote down. The ones nobody filmed. The ones that never got told. We go looking for them.</p>
+      </section>
+
+      <section className="band">
+        <div className="about-faith">
+          <span className="about-cross" aria-hidden="true" />
+          <div>
+            <p className="eyebrow">Who we are</p>
+            <h2>An independent film studio, and followers of Christ.</h2>
+            <p>Our faith is the reason we're here. It's why we believe every person has a story worth telling, and why we go looking for the lost, the overlooked and the almost forgotten. It shapes what we make, how we treat our cast and crew, and the kind of studio we want to be.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="band">
+        <div className="band-head"><h2>What we make</h2></div>
+        <p className="about-text">Short films, feature films and documentaries about real stories that were almost forgotten. Some are fiction. Some are true. All of them are told with honesty, heart and hope.</p>
+        <div className="about-make">
+          <article className="card"><span className="bl-num">01</span><h3>Short films</h3><p>Tight, character-driven stories that leave a mark.</p></article>
+          <article className="card"><span className="bl-num">02</span><h3>Feature films</h3><p>Full-length movies with room for the story to breathe.</p></article>
+          <article className="card"><span className="bl-num">03</span><h3>Documentaries</h3><p>True stories, found again and told on camera.</p></article>
+        </div>
+      </section>
+
+      <section className="band">
+        <div className="band-head"><h2>Built for filmmakers</h2></div>
+        <p className="about-text">A great film starts long before the camera rolls, with a script rewritten until it's right, a shot list that knows what it's chasing and a crew on the same page. So we built the tools we wanted for ourselves, and we share them.</p>
+        <div className="about-make">
+          <Link to="/backlot" className="card about-link">
+            <h3>Backlot</h3>
+            <p>Where we make our movies: screenplay, storyboard, call sheets and characters, all in one place and all live. Now any filmmaker can plan their project with their own team.</p>
+            <span className="see-all">Try Backlot →</span>
+          </Link>
+          <Link to="/journal" className="card about-link">
+            <h3>The Journal</h3>
+            <p>What we learn on set and in the edit, from lighting and lenses to cameras and craft. No gatekeeping, no fluff, just what works.</p>
+            <span className="see-all">Read the journal →</span>
+          </Link>
+          <article className="card about-link soon">
+            <h3>Bible Study</h3>
+            <p>Where we open the Word together, with studies and conversations about faith, storytelling and the God who goes looking for the lost. Everyone is welcome.</p>
+            <span className="about-soon">Coming soon</span>
+          </article>
+        </div>
+      </section>
+
+      <section className="band">
+        <div className="about-close">
+          <p>We're here to make films that matter, help others make theirs, and give God the glory for every frame.</p>
+          <p className="about-tag">Stories worth finding, told on film.</p>
+          <div className="hero-cta">
+            <Link to="/films" className="btn gold">Watch the films</Link>
+            <Link to="/journal" className="btn ghost">Read the journal</Link>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export function NotFound({ what = "page" }) {
   return (
     <main className="page narrow">
