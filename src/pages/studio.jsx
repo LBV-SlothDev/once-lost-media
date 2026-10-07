@@ -29,6 +29,12 @@ export function Studio() {
         </div>
       </header>
 
+      {!DEMO && user.user_metadata && user.user_metadata.must_change_pin && (
+        <div className="notice">
+          <strong>Choose your own PIN.</strong> You signed in with a temporary PIN from the site owner. Pick a new 6-digit PIN in the Sign-in PIN card below.
+        </div>
+      )}
+
       {!DEMO && !(user.user_metadata && user.user_metadata.has_pin) && (
         <div className="notice">
           <strong>Set your sign-in PIN.</strong> Choose a 6-digit PIN below. Next time, sign in with your email and PIN instead of waiting for an email.
@@ -99,8 +105,98 @@ export function Studio() {
         )}
 
         {!DEMO && <PinCard user={user} />}
+
+        {isOwner && <TeamCard me={user} />}
       </div>
     </main>
+  );
+}
+
+const newPin = () => {
+  const a = new Uint32Array(1);
+  for (;;) {
+    crypto.getRandomValues(a);
+    const p = String(a[0] % 1000000).padStart(6, "0");
+    if (!/^(\d)\1{5}$/.test(p) && !"0123456789".includes(p) && !"9876543210".includes(p)) return p;
+  }
+};
+const fmtSeen = (iso) => (iso ? "Last signed in " + fmtDate(iso) : "Hasn't signed in yet");
+
+function TeamCard({ me }) {
+  const [tick, setTick] = useState(0);
+  const team = useLoad(() => api.team.list(), [tick]);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [given, setGiven] = useState(null); // { who, email, pin } shown once after add or reset
+
+  const add = async (e) => {
+    e.preventDefault(); setError(null); setGiven(null);
+    const em = email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return setError(new Error("Enter their email address."));
+    const pin = newPin();
+    setBusy(true);
+    try {
+      await api.team.add(em, name.trim(), pin);
+      setGiven({ who: name.trim() || em, email: em, pin });
+      setEmail(""); setName(""); setTick((t) => t + 1);
+    } catch (err) { setError(err); }
+    setBusy(false);
+  };
+  const reset = async (p) => {
+    const pin = newPin();
+    try { await api.team.resetPin(p.user_id, pin); setGiven({ who: p.display_name || p.email, email: p.email, pin, reset: true }); setTick((t) => t + 1); }
+    catch (err) { toast(err.message); }
+  };
+  const remove = async (p) => {
+    try { await api.team.remove(p.user_id); toast((p.display_name || p.email) + " was removed from the team."); setTick((t) => t + 1); if (given && given.email === p.email) setGiven(null); }
+    catch (err) { toast(err.message); }
+  };
+  const copy = () => {
+    const t = `You're on the Once Lost Media team. Sign in at ${location.origin}/login with ${given.email} and the PIN ${given.pin}, then choose your own PIN in the Studio.`;
+    navigator.clipboard.writeText(t).then(() => toast("Copied. Send it to them by text or message."), () => toast("Copy isn't available here. Read the PIN to them instead."));
+  };
+
+  return (
+    <section className="card team-card">
+      <div className="card-head"><h2>Team</h2><span className="muted">{team.data ? team.data.length : ""}</span></div>
+      <p className="hint" style={{ marginTop: 0 }}>Team members can use Backlot. Only you can write journal entries and upload films.</p>
+      {team.loading ? <Loading /> : team.error ? <ErrorNote error={team.error} /> : (
+        <ul className="rows">
+          {team.data.map((p) => (
+            <li key={p.user_id}>
+              <div className="row-main">
+                <span className="row-title">{p.display_name || p.email.split("@")[0]}{p.user_id === me.id ? " (you)" : ""}</span>
+                <span className="row-sub">{p.email} · {fmtSeen(p.last_sign_in_at)}</span>
+              </div>
+              {p.is_owner ? <span className="pill live">Owner</span> : p.must_change_pin ? <span className="pill draft">Temporary PIN</span> : <span className="pill live">Active</span>}
+              {!p.is_owner && (<>
+                <ConfirmButton className="btn ghost sm" confirm="New PIN?" onConfirm={() => reset(p)}>Reset PIN</ConfirmButton>
+                <ConfirmButton className="btn ghost sm" confirm="Remove?" onConfirm={() => remove(p)}>Remove</ConfirmButton>
+              </>)}
+            </li>
+          ))}
+        </ul>
+      )}
+      {given && (
+        <div className="notice pin-given" role="status">
+          <span>{given.reset ? "New temporary PIN for" : "Added"} <strong>{given.who}</strong>. Their temporary PIN is</span>
+          <span className="pin-show">{given.pin}</span>
+          <span className="hint">Send it to them yourself. It won't be shown again. They'll be asked to choose their own PIN after signing in.</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="button" className="btn sm" onClick={copy}>Copy sign-in message</button><button type="button" className="btn ghost sm" onClick={() => setGiven(null)}>Done</button></div>
+        </div>
+      )}
+      <form className="fm" onSubmit={add} style={{ marginTop: 14 }}>
+        <div className="two">
+          <div><label htmlFor="tm-email">Email</label><input id="tm-email" className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@email.com" /></div>
+          <div><label htmlFor="tm-name">Name</label><input id="tm-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" /></div>
+        </div>
+        <ErrorNote error={error} />
+        <button className="btn gold" disabled={busy || !email.trim()} style={{ justifySelf: "start" }}>{busy ? "Adding…" : "Add team member"}</button>
+        <p className="hint" style={{ margin: 0 }}>Backlot makes a temporary 6-digit PIN for them. No email is sent.</p>
+      </form>
+    </section>
   );
 }
 

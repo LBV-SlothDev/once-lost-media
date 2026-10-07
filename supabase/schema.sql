@@ -184,3 +184,82 @@ create policy "team deletes media" on storage.objects for delete to authenticate
   using (bucket_id = 'media' or (bucket_id = 'films' and public.is_site_owner()));
 
 select (select count(*) from public.site_owners) as owners;
+
+-- ---------- Team management (owner only, used by the Studio's Team card) ----------
+-- The owner adds people with a temporary 6-digit PIN. No email is sent.
+create extension if not exists pgcrypto with schema extensions;
+
+create or replace function public.team_list()
+returns table (user_id uuid, email text, display_name text, is_owner boolean, has_pin boolean, must_change_pin boolean, last_sign_in_at timestamptz, created_at timestamptz)
+language sql stable security definer set search_path = public, auth as $$
+  select u.id, u.email::text, coalesce(p.display_name, ''),
+         exists (select 1 from public.site_owners o where o.user_id = u.id),
+         coalesce((u.raw_user_meta_data->>'has_pin')::boolean, false),
+         coalesce((u.raw_user_meta_data->>'must_change_pin')::boolean, false),
+         u.last_sign_in_at, u.created_at
+  from auth.users u left join public.profiles p on p.id = u.id
+  where public.is_site_owner()
+  order by u.created_at;
+$$;
+
+create or replace function public.team_add(p_email text, p_name text, p_pin text)
+returns uuid
+language plpgsql security definer set search_path = public, auth, extensions as $$
+declare
+  uid uuid := gen_random_uuid();
+  e text := lower(trim(coalesce(p_email, '')));
+begin
+  if not public.is_site_owner() then raise exception 'Only the site owner can add team members.'; end if;
+  if e !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then raise exception 'That email doesn''t look right.'; end if;
+  if coalesce(p_pin, '') !~ '^[0-9]{6}$' then raise exception 'The temporary PIN must be 6 numbers.'; end if;
+  if exists (select 1 from auth.users where lower(email) = e) then raise exception 'That email is already on the team.'; end if;
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, recovery_token, email_change, email_change_token_new, email_change_token_current,
+    phone_change, phone_change_token, reauthentication_token)
+  values ('00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated', e,
+    extensions.crypt(p_pin, extensions.gen_salt('bf')), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    jsonb_build_object('has_pin', true, 'must_change_pin', true), now(), now(),
+    '', '', '', '', '', '', '', '');
+  insert into auth.identities (user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+  values (uid, uid::text, jsonb_build_object('sub', uid::text, 'email', e, 'email_verified', true), 'email', null, now(), now());
+  if coalesce(trim(p_name), '') <> '' then
+    insert into public.profiles (id, display_name) values (uid, trim(p_name))
+    on conflict (id) do update set display_name = excluded.display_name;
+  end if;
+  return uid;
+end $$;
+
+create or replace function public.team_reset_pin(p_user uuid, p_pin text)
+returns void
+language plpgsql security definer set search_path = public, auth, extensions as $$
+begin
+  if not public.is_site_owner() then raise exception 'Only the site owner can reset PINs.'; end if;
+  if coalesce(p_pin, '') !~ '^[0-9]{6}$' then raise exception 'The temporary PIN must be 6 numbers.'; end if;
+  if exists (select 1 from public.site_owners where user_id = p_user) then raise exception 'Change your own PIN in the Sign-in PIN card.'; end if;
+  update auth.users
+     set encrypted_password = extensions.crypt(p_pin, extensions.gen_salt('bf')),
+         raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || '{"has_pin":true,"must_change_pin":true}'::jsonb,
+         updated_at = now()
+   where id = p_user;
+  if not found then raise exception 'That team member wasn''t found.'; end if;
+end $$;
+
+create or replace function public.team_remove(p_user uuid)
+returns void
+language plpgsql security definer set search_path = public, auth as $$
+begin
+  if not public.is_site_owner() then raise exception 'Only the site owner can remove team members.'; end if;
+  if p_user = auth.uid() or exists (select 1 from public.site_owners where user_id = p_user) then raise exception 'The site owner can''t be removed.'; end if;
+  delete from auth.users where id = p_user;
+end $$;
+
+revoke all on function public.team_list() from public, anon;
+revoke all on function public.team_add(text, text, text) from public, anon;
+revoke all on function public.team_reset_pin(uuid, text) from public, anon;
+revoke all on function public.team_remove(uuid) from public, anon;
+grant execute on function public.team_list() to authenticated;
+grant execute on function public.team_add(text, text, text) to authenticated;
+grant execute on function public.team_reset_pin(uuid, text) to authenticated;
+grant execute on function public.team_remove(uuid) to authenticated;

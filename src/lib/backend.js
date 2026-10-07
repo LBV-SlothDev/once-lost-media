@@ -115,12 +115,37 @@ const supa = {
   },
   async setPin(pin) {
     const c = await sb();
-    const { error } = await c.auth.updateUser({ password: pin, data: { has_pin: true } });
+    const { error } = await c.auth.updateUser({ password: pin, data: { has_pin: true, must_change_pin: false } });
     if (error) throw friendly(/reauthentication|nonce/i.test(error.message) ? { message: "For security, sign in again with an email link, then set your PIN." } : error);
   },
   async signOut() {
     const c = await sb();
     await c.auth.signOut();
+  },
+  /* Team (owner only). The database functions check that the caller is the site owner. */
+  team: {
+    async list() {
+      const c = await sb();
+      const { data, error } = await c.rpc("team_list");
+      if (error) throw friendly(error);
+      return data || [];
+    },
+    async add(email, name, pin) {
+      const c = await sb();
+      const { data, error } = await c.rpc("team_add", { p_email: email, p_name: name, p_pin: pin });
+      if (error) throw friendly(error);
+      return data;
+    },
+    async resetPin(userId, pin) {
+      const c = await sb();
+      const { error } = await c.rpc("team_reset_pin", { p_user: userId, p_pin: pin });
+      if (error) throw friendly(error);
+    },
+    async remove(userId) {
+      const c = await sb();
+      const { error } = await c.rpc("team_remove", { p_user: userId });
+      if (error) throw friendly(error);
+    },
   },
   async isOwner() {
     const c = await sb();
@@ -359,6 +384,18 @@ const demo = {
   },
   async signInWithPin(email) { return demo.signIn(email); },
   async setPin() {},
+  team: (() => {
+    let people = [{ user_id: "demo-owner", email: "you@oncelostmedia.com", display_name: "You", is_owner: true, has_pin: true, must_change_pin: false, last_sign_in_at: new Date().toISOString(), created_at: new Date().toISOString() }];
+    return {
+      async list() { return people.slice(); },
+      async add(email, name, pin) {
+        if (people.some((p) => p.email === email.toLowerCase())) throw new Error("That email is already on the team.");
+        people.push({ user_id: "demo-" + Date.now(), email: email.toLowerCase(), display_name: name, is_owner: false, has_pin: true, must_change_pin: true, last_sign_in_at: null, created_at: new Date().toISOString() });
+      },
+      async resetPin() {},
+      async remove(id) { people = people.filter((p) => p.user_id !== id); },
+    };
+  })(),
   async signIn(email) {
     const u = { id: "demo-" + slugify(email), email };
     try { sessionStorage.setItem("olm.demo.user", JSON.stringify(u)); } catch {}

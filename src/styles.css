@@ -304,3 +304,6 @@ textarea.input { resize: vertical; }
 }
 .pin-input { font-size: 22px; letter-spacing: .5em; text-align: center; font-variant-numeric: tabular-nums; }
 .login-alt { display: grid; gap: 6px; justify-items: start; margin-top: 4px; }
+
+.pin-given { display: grid; gap: 8px; margin-top: 14px; }
+.pin-show { font-size: 30px; letter-spacing: .4em; font-variant-numeric: tabular-nums; color: var(--gold-hi); font-weight: 600; }
