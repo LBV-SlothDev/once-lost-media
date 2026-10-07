@@ -523,6 +523,7 @@ export function BacklotPicker() {
     if (pick) navigate("/studio/backlot/" + pick.id, { replace: true });
   }, [teams.data, navigate]);
   if (teams.loading || (teams.data && (teams.data.length === 1 || teams.data.some((t) => t.id === lastTeam.get())))) return <main className="page"><Loading label="Opening Backlot" /></main>;
+  if (teams.data && teams.data.length === 0) return <FirstTeam />;
   return (
     <main className="page wide">
       <header className="page-head"><p className="eyebrow">Backlot</p><h1>Pick a team</h1></header>
@@ -558,6 +559,37 @@ export function BacklotPage({ ws }) {
       <div className="team-strip"><span className="muted">Team</span> <strong>{team ? team.name : "…"}</strong>{teams.data && teams.data.length > 1 && <Link to="/studio" className="linkish">Switch team</Link>}<Link to="/studio" className="linkish">Invite people</Link></div>
       <ErrorNote error={error} />
       <div ref={ref} className="backlot"><div style={{ padding: 32 }}><Loading label="Opening Backlot" /></div></div>
+    </main>
+  );
+}
+
+/* First visit: name your team and go straight into Backlot. */
+function FirstTeam() {
+  const { navigate } = useRouter();
+  const { user } = useAuth();
+  const first = ((user && user.email) || "").split("@")[0];
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const go = async (e) => {
+    e.preventDefault(); setError(null); setBusy(true);
+    try { const id = await api.teams.create(name.trim() || "My production"); navigate("/studio/backlot/" + id, { replace: true }); }
+    catch (err) { setError(err); setBusy(false); }
+  };
+  return (
+    <main className="page narrow">
+      <header className="page-head">
+        <p className="eyebrow">Welcome to Backlot</p>
+        <h1>Name your team</h1>
+        <p className="lede">A team is your production: everyone on it shares the script, storyboard and call sheets. You can invite people next.</p>
+      </header>
+      <form className="card fm" onSubmit={go}>
+        <label htmlFor="ft-name">Team or production name</label>
+        <input id="ft-name" className="input" autoFocus maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder={first ? first + "'s production" : "Night Shift Films"} />
+        <ErrorNote error={error} />
+        <button className="btn gold" disabled={busy} style={{ justifySelf: "start" }}>{busy ? "Setting up…" : "Start writing"}</button>
+        <p className="hint" style={{ margin: 0 }}>Got an invite link from someone? Open it instead to join their team.</p>
+      </form>
     </main>
   );
 }

@@ -17,6 +17,7 @@ export function Nav({ onReplay }) {
           <nav className="nav-links" aria-label="Main">
             <Link to="/films">Films</Link>
             <Link to="/journal">Journal</Link>
+            <Link to="/backlot">Backlot</Link>
             {user && <Link to="/studio">Studio</Link>}
           </nav>
           <MoreMenu user={user} isOwner={isOwner} onReplay={onReplay} />
@@ -41,12 +42,12 @@ function MoreMenu({ user, isOwner, onReplay }) {
       ? [
           { label: "Studio", to: "/studio" },
           ...(isOwner ? [{ label: "Upload a film", to: "/studio/film/new" }, { label: "Write a journal entry", to: "/studio/post/new" }] : []),
-          { label: "Backlot", to: "/studio/backlot", hint: "Script · storyboard · call sheets" },
           "sep",
         ]
       : []),
+    { label: "Backlot", to: user ? "/studio/backlot" : "/backlot", hint: "Free screenwriting & production tool" },
     { label: "Replay the opening reel", run: () => onReplay && onReplay() },
-    user ? { label: "Sign out", run: async () => { await api.signOut(); navigate("/"); } } : { label: "Team sign in", to: "/login" },
+    user ? { label: "Sign out", run: async () => { await api.signOut(); navigate("/"); } } : { label: "Sign in", to: "/login" },
   ];
 
   useEffect(() => setOpen(false), [path]);

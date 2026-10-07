@@ -312,6 +312,75 @@ export function Join({ token }) {
   );
 }
 
+/* Public page anyone can see: /backlot */
+export function BacklotLanding() {
+  const { user } = useAuth();
+  const { navigate } = useRouter();
+  const start = () => {
+    if (user) return navigate("/studio/backlot");
+    setNext("/studio/backlot");
+    navigate(SIGNUPS ? "/login?new=1" : "/login");
+  };
+  useEffect(() => { document.title = "Backlot · Once Lost Media"; return () => { document.title = "Once Lost Media"; }; }, []);
+  const cta = user ? "Open Backlot" : SIGNUPS ? "Sign up free" : "Sign in";
+  return (
+    <main className="bl-landing">
+      <section className="bl-hero">
+        <div className="hero-beam" aria-hidden="true" />
+        <div className="bl-hero-copy">
+          <p className="eyebrow">Backlot by Once Lost Media</p>
+          <h1>Make the movie together.</h1>
+          <p className="bl-lede">Write the screenplay, build the characters, draw the storyboard and send call sheets, all in one place, live with your whole crew. Free.</p>
+          <div className="hero-cta" style={{ justifyContent: "flex-start" }}>
+            <button className="btn gold" onClick={start}>{cta}</button>
+            {!user && SIGNUPS && <button className="btn ghost" onClick={() => { setNext("/studio/backlot"); navigate("/login"); }}>I have an account</button>}
+          </div>
+          {!user && !SIGNUPS && <p className="hint">New accounts are opening soon. Already on a team? Sign in.</p>}
+        </div>
+        <div className="bl-page" aria-hidden="true">
+          <div className="bl-page-bar"><span>Script</span><span>Characters</span><span>Storyboard</span><span>Call sheets</span><i /><i /><i /></div>
+          <div className="bl-sheet">
+            <p className="sh">INT. DINER - NIGHT</p>
+            <p>Rain on the windows. A neon sign buzzes, half the letters dead.</p>
+            <p className="ch">MARGO</p>
+            <p className="dl">You've been nursing that coffee for an hour.</p>
+            <p className="ch">DEV</p>
+            <p className="pa">(quietly)</p>
+            <p className="dl">I'm waiting for someone.</p>
+            <span className="cursor-tag">Sam is editing</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="band">
+        <div className="bl-grid">
+          <article className="card bl-feat"><span className="bl-num">01</span><h3>Screenplay</h3><p>Proper screenplay format as you type. Enter and Tab handle the formatting, with page counts, scene numbers and print-ready PDFs.</p></article>
+          <article className="card bl-feat"><span className="bl-num">02</span><h3>Characters</h3><p>Every speaking character gets a sheet automatically: backstory, wardrobe, casting and every scene they're in.</p></article>
+          <article className="card bl-feat"><span className="bl-num">03</span><h3>Storyboard</h3><p>Draw or upload frames for every shot, with lens, angle, movement and notes, organized by scene.</p></article>
+          <article className="card bl-feat"><span className="bl-num">04</span><h3>Call sheets</h3><p>Pick the day's scenes and Backlot fills in the cast and page counts. Set call times, then copy it to your group chat.</p></article>
+        </div>
+      </section>
+
+      <section className="band">
+        <div className="band-head"><h2>How it works</h2></div>
+        <ol className="bl-steps">
+          <li><b>Create a free account</b><span>Just your name and email. Pick a 6-digit PIN to sign in after that.</span></li>
+          <li><b>Start a team</b><span>Give it your production's name. You can run up to 3 teams.</span></li>
+          <li><b>Send your crew the invite link</b><span>They join in one click. Everyone sees changes live, and two people never edit the same scene at once.</span></li>
+        </ol>
+      </section>
+
+      <section className="band">
+        <div className="card bl-private">
+          <h2>Your project stays yours</h2>
+          <p>Only people on your team can see your script, storyboards and call sheets. Not other teams, and not the public. You can remove people or turn off an invite link at any time, and version history lets you roll back any change.</p>
+          <button className="btn gold" style={{ justifySelf: "start" }} onClick={start}>{cta}</button>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export function NotFound({ what = "page" }) {
   return (
     <main className="page narrow">
