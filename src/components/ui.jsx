@@ -17,6 +17,7 @@ export function Nav({ onReplay }) {
           <nav className="nav-links" aria-label="Main">
             <Link to="/films">Films</Link>
             <Link to="/journal">Journal</Link>
+            <Link to="/bible-study">Bible Study</Link>
             <Link to="/backlot">Backlot</Link>
             <Link to="/about">About</Link>
             {user && <Link to="/studio">Studio</Link>}
@@ -38,12 +39,13 @@ function MoreMenu({ user, isOwner, onReplay }) {
     { label: "Home", to: "/" },
     { label: "Films", to: "/films" },
     { label: "Journal", to: "/journal" },
+    { label: "Bible Study", to: "/bible-study" },
     { label: "About", to: "/about" },
     "sep",
     ...(user
       ? [
           { label: "Studio", to: "/studio" },
-          ...(isOwner ? [{ label: "Upload a film", to: "/studio/film/new" }, { label: "Write a journal entry", to: "/studio/post/new" }] : []),
+          ...(isOwner ? [{ label: "Upload a film", to: "/studio/film/new" }, { label: "Write a journal entry", to: "/studio/post/new" }, { label: "Write a Bible study", to: "/studio/study/new" }] : []),
           "sep",
         ]
       : []),
@@ -136,15 +138,15 @@ export function FilmCard({ film }) {
   );
 }
 
-export function PostCard({ post, big }) {
+export function PostCard({ post, big, base = "/journal", more = "Read the entry →", kicker }) {
   return (
-    <Link to={`/journal/${post.slug}`} className={"post-card" + (big ? " big" : "")}>
+    <Link to={`${base}/${post.slug}`} className={"post-card" + (big ? " big" : "")}>
       {post.cover_url && <div className="post-cover"><img src={post.cover_url} alt="" loading="lazy" /></div>}
       <div className="post-body">
-        <time>{fmtDate(post.created_at)}</time>
+        <time>{kicker || fmtDate(post.created_at)}</time>
         <h3>{post.title}</h3>
         {post.excerpt && <p>{post.excerpt}</p>}
-        <span className="more">Read the entry →</span>
+        <span className="more">{more}</span>
       </div>
     </Link>
   );
