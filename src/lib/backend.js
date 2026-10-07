@@ -271,6 +271,60 @@ const supa = {
     if (error) throw friendly(error);
   },
 
+  async listStudies({ drafts } = {}) {
+    const c = await sb();
+    let q = c.from("studies").select("id,slug,title,scripture,excerpt,cover_url,published,comments_open,created_at,updated_at,author_name").order("created_at", { ascending: false });
+    if (!drafts) q = q.eq("published", true);
+    const { data, error } = await q;
+    if (error) throw friendly(error);
+    const counts = await c.rpc("study_comment_counts");
+    const n = Object.fromEntries((counts.data || []).map((r) => [r.study_id, Number(r.n)]));
+    return data.map((s) => ({ ...s, comments: n[s.id] || 0 }));
+  },
+  async getStudy({ id, slug }) {
+    const c = await sb();
+    const { data, error } = await c.from("studies").select("*").eq(id ? "id" : "slug", id || slug).maybeSingle();
+    if (error) throw friendly(error);
+    return data;
+  },
+  async saveStudy(p) {
+    const c = await sb();
+    const row = { slug: p.slug, title: p.title, scripture: p.scripture || "", excerpt: p.excerpt, body: p.body, questions: p.questions || "", cover_url: p.cover_url, comments_open: p.comments_open !== false, published: !!p.published, author_name: p.author_name, updated_at: stamp() };
+    const q = p.id ? c.from("studies").update(row).eq("id", p.id) : c.from("studies").insert(row);
+    const { data, error } = await q.select().single();
+    if (error) throw friendly(error);
+    return data;
+  },
+  async deleteStudy(id) {
+    const c = await sb();
+    const { error } = await c.from("studies").delete().eq("id", id);
+    if (error) throw friendly(error);
+  },
+  comments: {
+    async list(studyId) {
+      const c = await sb();
+      const { data, error } = await c.from("study_comments").select("id,study_id,user_id,author_name,body,hidden,created_at").eq("study_id", studyId).order("created_at", { ascending: true });
+      if (error) throw friendly(error);
+      return data;
+    },
+    async add(studyId, body) {
+      const c = await sb();
+      const { data, error } = await c.from("study_comments").insert({ study_id: studyId, body }).select("id,study_id,user_id,author_name,body,hidden,created_at").single();
+      if (error) throw friendly(error.code === "42501" ? { message: "Comments are closed on this study." } : error);
+      return data;
+    },
+    async remove(id) {
+      const c = await sb();
+      const { error } = await c.from("study_comments").delete().eq("id", id);
+      if (error) throw friendly(error);
+    },
+    async setHidden(id, hidden) {
+      const c = await sb();
+      const { error } = await c.from("study_comments").update({ hidden }).eq("id", id);
+      if (error) throw friendly(error);
+    },
+  },
+
   async listFilms({ drafts } = {}) {
     const c = await sb();
     let q = c.from("films").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: false });
@@ -525,6 +579,41 @@ const demo = {
     const d = readDemo();
     d.posts = d.posts.filter((x) => x.id !== id);
     writeDemo(d);
+  },
+  async listStudies({ drafts } = {}) {
+    const d = readDemo();
+    return (d.studies || []).filter((p) => drafts || p.published).map((s) => ({ ...s, comments: (d.comments || []).filter((c) => c.study_id === s.id && !c.hidden).length })).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  },
+  async getStudy({ id, slug }) {
+    return (readDemo().studies || []).find((p) => (id ? p.id === id : p.slug === slug)) || null;
+  },
+  async saveStudy(p) {
+    const d = readDemo();
+    d.studies = d.studies || [];
+    if (d.studies.some((x) => x.slug === p.slug && x.id !== p.id)) throw new Error("That web address (slug) is already used by another study.");
+    const row = { comments_open: true, ...p, id: p.id || uid(), created_at: p.created_at || stamp(), updated_at: stamp() };
+    d.studies = d.studies.filter((x) => x.id !== row.id).concat(row);
+    writeDemo(d);
+    return row;
+  },
+  async deleteStudy(id) {
+    const d = readDemo();
+    d.studies = (d.studies || []).filter((x) => x.id !== id);
+    writeDemo(d);
+  },
+  comments: {
+    async list(studyId) { return (readDemo().comments || []).filter((c) => c.study_id === studyId); },
+    async add(studyId, body) {
+      const u = await demo.getUser();
+      if (!u) throw new Error("Sign in to comment.");
+      const d = readDemo();
+      const row = { id: uid(), study_id: studyId, user_id: u.id, author_name: u.email.split("@")[0], body: body.trim(), hidden: false, created_at: stamp() };
+      d.comments = (d.comments || []).concat(row);
+      writeDemo(d);
+      return row;
+    },
+    async remove(id) { const d = readDemo(); d.comments = (d.comments || []).filter((c) => c.id !== id); writeDemo(d); },
+    async setHidden(id, hidden) { const d = readDemo(); d.comments = (d.comments || []).map((c) => (c.id === id ? { ...c, hidden } : c)); writeDemo(d); },
   },
   async listFilms({ drafts } = {}) {
     return readDemo().films.filter((f) => drafts || f.published).map((f) => ({ ...f, video_url: blobs.get(f.id) || f.video_url })).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || b.created_at.localeCompare(a.created_at));
