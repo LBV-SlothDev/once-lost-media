@@ -14,6 +14,7 @@ export function Studio() {
   const [tick, setTick] = useState(0);
   const posts = useLoad(() => (isOwner ? api.listPosts({ drafts: true }) : Promise.resolve([])), [tick, isOwner]);
   const films = useLoad(() => (isOwner ? api.listFilms({ drafts: true }) : Promise.resolve([])), [tick, isOwner]);
+  const studies = useLoad(() => (isOwner ? api.listStudies({ drafts: true }) : Promise.resolve([])), [tick, isOwner]);
   const [name, setName] = useState("");
   useEffect(() => { api.getProfile(user.id).then((p) => p && setName(p.display_name || "")); }, [user.id]);
 
@@ -65,6 +66,24 @@ export function Studio() {
               ))}
             </ul>
           ) : <p className="muted">No entries yet. Write the first one.</p>}
+        </section>
+
+        <section className="card">
+          <div className="card-head"><h2>Bible Study</h2><Link to="/studio/study/new" className="btn gold sm">New study</Link></div>
+          {studies.loading ? <Loading /> : studies.error ? <ErrorNote error={studies.error} /> : studies.data.length ? (
+            <ul className="rows">
+              {studies.data.map((p) => (
+                <li key={p.id}>
+                  <div className="row-main">
+                    <Link to={`/studio/study/${p.id}`} className="row-title">{p.title || "Untitled"}</Link>
+                    <span className="row-sub">{[p.scripture, fmtDate(p.created_at), p.comments ? `${p.comments} comment${p.comments === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ")}</span>
+                  </div>
+                  <span className={"pill " + (p.published ? "live" : "draft")}>{p.published ? "Published" : "Draft"}</span>
+                  <ConfirmButton className="btn ghost sm" confirm="Delete?" onConfirm={async () => { try { await api.deleteStudy(p.id); toast("Study deleted."); setTick((t) => t + 1); } catch (e) { toast(e.message); } }}>Delete</ConfirmButton>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="muted">No studies yet. Write the first one.</p>}
         </section>
 
         <section className="card">
@@ -235,11 +254,17 @@ function PinCard({ user }) {
 
 /* ---------------- Journal editor ---------------- */
 const EMPTY_POST = { title: "", slug: "", excerpt: "", body: "", cover_url: "", published: false };
+const EMPTY_STUDY = { ...EMPTY_POST, scripture: "", questions: "", comments_open: true };
+const KINDS = {
+  post: { section: "Journal", noun: "entry", base: "/journal", edit: "/studio/post", get: (q) => api.getPost(q), save: (p) => api.savePost(p), empty: EMPTY_POST, summary: "One or two sentences shown on the journal page", ask: "What's this entry about?" },
+  study: { section: "Bible Study", noun: "study", base: "/bible-study", edit: "/studio/study", get: (q) => api.getStudy(q), save: (p) => api.saveStudy(p), empty: EMPTY_STUDY, summary: "One or two sentences shown on the Bible Study page", ask: "What's this study called?" },
+};
 
-export function PostEditor({ id }) {
+export function PostEditor({ id, kind = "post" }) {
+  const K = KINDS[kind];
   const { user } = useAuth();
   const { navigate } = useRouter();
-  const [post, setPost] = useState(id ? null : EMPTY_POST);
+  const [post, setPost] = useState(id ? null : K.empty);
   const [slugTouched, setSlugTouched] = useState(!!id);
   const [view, setView] = useState("write");
   const [busy, setBusy] = useState("");
@@ -251,7 +276,7 @@ export function PostEditor({ id }) {
 
   useEffect(() => {
     if (!id) return;
-    api.getPost({ id }).then((p) => setPost(p || EMPTY_POST), setError);
+    K.get({ id }).then((p) => setPost(p || K.empty), setError);
   }, [id]);
   useEffect(() => {
     const warn = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
@@ -299,13 +324,13 @@ export function PostEditor({ id }) {
   };
 
   const save = async (publish) => {
-    if (!post.title.trim()) { setError(new Error("Give the entry a title before saving.")); return; }
+    if (!post.title.trim()) { setError(new Error(`Give the ${K.noun} a title before saving.`)); return; }
     setBusy("Saving…"); setError(null);
     try {
-      const row = await api.savePost({ ...post, slug: post.slug || slugify(post.title), published: publish ?? post.published, author_name: post.author_name || (await api.getProfile(user.id))?.display_name || "" });
+      const row = await K.save({ ...post, slug: post.slug || slugify(post.title), published: publish ?? post.published, author_name: post.author_name || (await api.getProfile(user.id))?.display_name || "" });
       setPost(row); setDirty(false);
       toast(row.published ? "Published." : "Draft saved.");
-      if (!id) navigate(`/studio/post/${row.id}`, { replace: true });
+      if (!id) navigate(`${K.edit}/${row.id}`, { replace: true });
     } catch (e) { setError(e); }
     setBusy("");
   };
@@ -321,12 +346,12 @@ export function PostEditor({ id }) {
     <main className="page wide editor">
       <header className="page-head row">
         <div>
-          <p className="eyebrow"><Link to="/studio">Studio</Link> / Journal</p>
-          <h1>{id ? "Edit entry" : "New entry"}</h1>
+          <p className="eyebrow"><Link to="/studio">Studio</Link> / {K.section}</p>
+          <h1>{id ? `Edit ${K.noun}` : `New ${K.noun}`}</h1>
         </div>
         <div className="head-actions">
           {busy && <span className="hint">{busy}</span>}
-          {post.id && post.published && <Link to={`/journal/${post.slug}`} className="btn ghost">View</Link>}
+          {post.id && post.published && <Link to={`${K.base}/${post.slug}`} className="btn ghost">View</Link>}
           <button className="btn" onClick={() => save(false)} disabled={!!busy}>{post.published ? "Unpublish" : "Save draft"}</button>
           <button className="btn gold" onClick={() => save(true)} disabled={!!busy}>{post.published ? "Update" : "Publish"}</button>
         </div>
@@ -336,11 +361,20 @@ export function PostEditor({ id }) {
       <div className="ed-meta">
         <div className="fm">
           <label htmlFor="pt">Title</label>
-          <input id="pt" className="input title-input" value={post.title} onChange={(e) => set("title", e.target.value)} placeholder="What's this entry about?" />
+          <input id="pt" className="input title-input" value={post.title} onChange={(e) => set("title", e.target.value)} placeholder={K.ask} />
+          {kind === "study" && (<>
+            <label htmlFor="pr">Scripture</label>
+            <input id="pr" className="input" value={post.scripture || ""} onChange={(e) => set("scripture", e.target.value)} placeholder="For example: Luke 15:1-7" />
+          </>)}
           <label htmlFor="ps">Web address</label>
-          <div className="slug"><span>/journal/</span><input id="ps" className="input" value={post.slug} onChange={(e) => { setSlugTouched(true); set("slug", slugify(e.target.value)); }} /></div>
+          <div className="slug"><span>{K.base}/</span><input id="ps" className="input" value={post.slug} onChange={(e) => { setSlugTouched(true); set("slug", slugify(e.target.value)); }} /></div>
           <label htmlFor="pe">Short summary</label>
-          <textarea id="pe" className="input" rows="2" value={post.excerpt || ""} onChange={(e) => set("excerpt", e.target.value)} placeholder="One or two sentences shown on the journal page" />
+          <textarea id="pe" className="input" rows="2" value={post.excerpt || ""} onChange={(e) => set("excerpt", e.target.value)} placeholder={K.summary} />
+          {kind === "study" && (<>
+            <label htmlFor="pq">Questions for reflection</label>
+            <textarea id="pq" className="input" rows="4" value={post.questions || ""} onChange={(e) => set("questions", e.target.value)} placeholder={"One question per line.\nWhat does this passage show us about God's love?"} />
+            <label className="check"><input type="checkbox" checked={post.comments_open !== false} onChange={(e) => set("comments_open", e.target.checked)} /> Allow comments</label>
+          </>)}
         </div>
         <div className="cover-pick">
           <span className="label">Cover image</span>
@@ -375,7 +409,7 @@ export function PostEditor({ id }) {
       <div className={"md-panes " + view}>
         {view !== "preview" && (
           <textarea ref={body} className="md-input" value={post.body} onChange={(e) => set("body", e.target.value)} onPaste={(e) => { const f = [...e.clipboardData.files].find((x) => x.type.startsWith("image/")); if (f) { e.preventDefault(); uploadInline(f); } }}
-            placeholder={"Write your entry here.\n\nUse ## for a heading, **bold**, _italic_, and paste images straight in."} aria-label="Entry text" />
+            placeholder={kind === "study" ? "Write the study here.\n\nQuote the passage with > at the start of a line, use ## for headings, **bold** and _italic_." : "Write your entry here.\n\nUse ## for a heading, **bold**, _italic_, and paste images straight in."} aria-label="Entry text" />
         )}
         {view !== "write" && <div className="md-preview prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(post.body) || "<p class='muted'>Nothing to preview yet.</p>" }} />}
       </div>

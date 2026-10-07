@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth.jsx";
 import { Link, useRouter } from "../lib/router.jsx";
 import { renderMarkdown, readingTime } from "../lib/markdown.js";
 import { asset, fmtDate, fmtRuntime } from "../lib/format.js";
-import { FilmCard, PostCard, RunningStrip, Empty, Loading, ErrorNote, useLoad, HumanCheck, toast } from "../components/ui.jsx";
+import { FilmCard, PostCard, RunningStrip, Empty, Loading, ErrorNote, useLoad, HumanCheck, toast, ConfirmButton } from "../components/ui.jsx";
 
 export function Home() {
   const { isOwner: user } = useAuth();
@@ -158,6 +158,135 @@ export function Post({ slug }) {
       <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(p.body) }} />
       <p className="article-back"><Link to="/journal">← Back to the journal</Link></p>
     </main>
+  );
+}
+
+export function BibleStudy() {
+  const studies = useLoad(() => api.listStudies(), []);
+  useEffect(() => { document.title = "Bible Study · Once Lost Media"; return () => { document.title = "Once Lost Media"; }; }, []);
+  return (
+    <main className="page">
+      <header className="page-head study-head">
+        <p className="eyebrow">Open the Word together</p>
+        <h1>Bible Study</h1>
+        <p className="lede">Studies, reflections and conversation about faith, storytelling and the God who goes looking for the lost. Everyone is welcome, wherever you are on the journey.</p>
+      </header>
+      {studies.loading ? <Loading /> : studies.error ? <ErrorNote error={studies.error} /> : studies.data.length ? (
+        <div className="post-list">{studies.data.map((x) => (
+          <PostCard key={x.id} post={x} base="/bible-study" kicker={[x.scripture, x.comments ? `${x.comments} comment${x.comments === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ") || fmtDate(x.created_at)} more="Open the study →" />
+        ))}</div>
+      ) : <Empty title="The first study is coming soon"><p>Check back soon, and bring a friend.</p></Empty>}
+    </main>
+  );
+}
+
+export function Study({ slug }) {
+  const { user, isOwner } = useAuth();
+  const study = useLoad(() => api.getStudy({ slug }), [slug]);
+  useEffect(() => {
+    if (study.data) document.title = study.data.title + " · Bible Study · Once Lost Media";
+    return () => { document.title = "Once Lost Media"; };
+  }, [study.data]);
+  if (study.loading) return <main className="page"><Loading /></main>;
+  if (study.error) return <main className="page"><ErrorNote error={study.error} /></main>;
+  const s = study.data;
+  if (!s || (!s.published && !isOwner)) return <NotFound what="study" />;
+  const questions = (s.questions || "").split("\n").map((q) => q.replace(/^\s*(\d+[.)]|[-*•])\s*/, "").trim()).filter(Boolean);
+  return (
+    <main className="article">
+      {s.cover_url && <div className="article-cover"><img src={s.cover_url} alt="" /></div>}
+      <header className="article-head">
+        {!s.published && <span className="pill draft">Draft</span>}
+        <p className="eyebrow"><Link to="/bible-study">Bible Study</Link></p>
+        <h1>{s.title}</h1>
+        {s.scripture && <p className="study-ref">{s.scripture}</p>}
+        <p className="meta">
+          {fmtDate(s.created_at)}{s.author_name ? ` · ${s.author_name}` : ""}
+          {isOwner && <> · <Link to={`/studio/study/${s.id}`}>Edit</Link></>}
+        </p>
+      </header>
+      <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(s.body) }} />
+      {questions.length > 0 && (
+        <section className="study-qs">
+          <h2>Questions for reflection</h2>
+          <ol>{questions.map((q, i) => <li key={i}>{q}</li>)}</ol>
+          {s.comments_open && <p className="hint">Share your thoughts on any of these below.</p>}
+        </section>
+      )}
+      {s.published && <Comments study={s} user={user} isOwner={isOwner} />}
+      <p className="article-back"><Link to="/bible-study">← All studies</Link></p>
+    </main>
+  );
+}
+
+function Comments({ study, user, isOwner }) {
+  const { navigate, path } = useRouter();
+  const [tick, setTick] = useState(0);
+  const list = useLoad(() => api.comments.list(study.id), [study.id, tick]);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const rows = list.data || [];
+  const shown = rows.filter((c) => !c.hidden || isOwner || (user && c.user_id === user.id));
+  const visible = rows.filter((c) => !c.hidden).length;
+  const post = async (e) => {
+    e.preventDefault();
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    try { await api.comments.add(study.id, text); setText(""); setTick((t) => t + 1); toast("Comment posted."); }
+    catch (err) { toast(err.message); }
+    setBusy(false);
+  };
+  const act = async (fn, msg) => { try { await fn(); toast(msg); setTick((t) => t + 1); } catch (err) { toast(err.message); } };
+  const goSign = (signup) => { setNext(path); navigate(signup && SIGNUPS ? "/login?new=1" : "/login"); };
+  return (
+    <section className="comments" id="comments">
+      <h2>Conversation{visible ? <span className="c-count">{visible}</span> : null}</h2>
+      {list.loading ? <Loading /> : list.error ? <ErrorNote error={list.error} /> : shown.length ? (
+        <ul className="c-list">
+          {shown.map((c) => {
+            const mine = user && c.user_id === user.id;
+            return (
+              <li key={c.id} className={"c-item" + (c.hidden ? " is-hidden" : "")}>
+                <span className="c-av" aria-hidden="true">{(c.author_name || "?").trim().charAt(0).toUpperCase()}</span>
+                <div className="c-main">
+                  <div className="c-top">
+                    <strong>{c.author_name || "Friend"}</strong>
+                    <time>{fmtDate(c.created_at)}</time>
+                    {c.hidden && <span className="pill draft">Hidden</span>}
+                  </div>
+                  <p className="c-body">{c.body}</p>
+                  {(mine || isOwner) && (
+                    <div className="c-acts">
+                      {isOwner && <button className="linkish" onClick={() => act(() => api.comments.setHidden(c.id, !c.hidden), c.hidden ? "Comment shown." : "Comment hidden.")}>{c.hidden ? "Show" : "Hide"}</button>}
+                      <ConfirmButton className="linkish" confirm="Delete for good?" onConfirm={() => act(() => api.comments.remove(c.id), "Comment deleted.")}>Delete</ConfirmButton>
+                    </div>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : <p className="muted">No comments yet. Be the first to share a thought.</p>}
+
+      {!study.comments_open ? <p className="hint">Comments are closed on this study.</p> : user ? (
+        <form className="c-form" onSubmit={post}>
+          <label htmlFor="c-text" className="sr">Your comment</label>
+          <textarea id="c-text" className="input" rows="4" maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} placeholder="Share what stood out to you, a question, or a prayer request." />
+          <div className="c-form-foot">
+            <span className="hint">Be kind. Comments show your name. {text.length > 1800 ? `${2000 - text.length} characters left.` : ""}</span>
+            <button className="btn gold" disabled={busy || !text.trim()}>{busy ? "Posting…" : "Post comment"}</button>
+          </div>
+        </form>
+      ) : (
+        <div className="c-signin card">
+          <p><strong>Join the conversation.</strong> Sign in or create a free account to comment.</p>
+          <div className="hero-cta" style={{ justifyContent: "flex-start" }}>
+            {SIGNUPS && <button className="btn gold" onClick={() => goSign(true)}>Create free account</button>}
+            <button className={"btn " + (SIGNUPS ? "ghost" : "gold")} onClick={() => goSign(false)}>Sign in</button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -427,11 +556,11 @@ export function About() {
             <p>What we learn on set and in the edit, from lighting and lenses to cameras and craft. No gatekeeping, no fluff, just what works.</p>
             <span className="see-all">Read the journal →</span>
           </Link>
-          <article className="card about-link soon">
+          <Link to="/bible-study" className="card about-link">
             <h3>Bible Study</h3>
             <p>Where we open the Word together, with studies and conversations about faith, storytelling and the God who goes looking for the lost. Everyone is welcome.</p>
-            <span className="about-soon">Coming soon</span>
-          </article>
+            <span className="see-all">Join the study →</span>
+          </Link>
         </div>
       </section>
 
