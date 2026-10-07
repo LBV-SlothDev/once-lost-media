@@ -385,3 +385,36 @@ a.about-link:hover { border-color: var(--gold-lo); transform: translateY(-2px); 
 .about-close .about-tag { font: 600 clamp(20px, 2.6vw, 30px)/1.3 var(--f-display); color: var(--gold-hi); margin-bottom: 26px; }
 @media (max-width: 860px) { .about-make { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 560px) { .about-faith { grid-template-columns: minmax(0, 1fr); } }
+
+/* Bible Study */
+.study-head .lede { max-width: 60ch; }
+.study-ref { margin: 6px 0 12px; font: 600 15px var(--f-ui); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.study-qs { margin: 44px 0 0; padding: clamp(20px, 3vw, 30px); background: linear-gradient(135deg, rgba(201,164,92,.09), transparent 60%), var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 10px; }
+.study-qs h2 { margin: 0 0 14px; font-size: 24px; }
+.study-qs ol { margin: 0; padding-left: 1.3em; display: grid; gap: 10px; font: 400 18px/1.6 var(--f-read); }
+.study-qs .hint { margin: 14px 0 0; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--ink); cursor: pointer; }
+.check input { width: 16px; height: 16px; accent-color: var(--gold); }
+.comments { margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--line); }
+.comments h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 20px; font-size: 26px; }
+.c-count { font: 600 13px var(--f-ui); color: var(--bg); background: var(--gold); border-radius: 999px; padding: 3px 9px; }
+.c-list { list-style: none; margin: 0 0 24px; padding: 0; display: grid; gap: 18px; }
+.c-item { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; }
+.c-item.is-hidden { opacity: .55; }
+.c-av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--panel); border: 1px solid var(--gold-lo); color: var(--gold-hi); font: 700 16px var(--f-display); }
+.c-top { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; }
+.c-top strong { font-size: 15px; }
+.c-top time { font-size: 13px; color: var(--muted); }
+.c-body { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 17px/1.6 var(--f-read); color: #e3ddcf; }
+.c-acts { display: flex; gap: 16px; margin-top: 6px; }
+.c-acts .linkish { font-size: 13px; color: var(--muted); }
+.c-acts .linkish:hover { color: var(--gold-hi); }
+.c-form { display: grid; gap: 10px; }
+.c-form textarea { resize: vertical; min-height: 110px; font: 400 16px/1.55 var(--f-read); }
+.c-form-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.c-form-foot .hint { margin: 0; }
+.c-signin { display: grid; gap: 14px; }
+.c-signin p { margin: 0; }
+.slug span { white-space: nowrap; }
+.nav-links a { white-space: nowrap; }
+@media (max-width: 880px) { .nav-links { display: none; } }

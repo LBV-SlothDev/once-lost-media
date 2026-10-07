@@ -3,7 +3,7 @@ import { Router, useRouter, match } from "./lib/router.jsx";
 import { AuthProvider } from "./lib/auth.jsx";
 import FilmIntro from "./components/FilmIntro.jsx";
 import { Nav, Footer, Toaster, RequireTeam, RequireOwner } from "./components/ui.jsx";
-import { Home, Films, Watch, Journal, Post, Login, Join, BacklotLanding, About, NotFound } from "./pages/public.jsx";
+import { Home, Films, Watch, Journal, Post, Login, Join, BacklotLanding, About, BibleStudy, Study, NotFound } from "./pages/public.jsx";
 import { Studio, PostEditor, FilmEditor, BacklotPage, BacklotPicker } from "./pages/studio.jsx";
 
 const seen = () => {
@@ -24,11 +24,15 @@ function Routes() {
   if (path === "/journal") return <Journal />;
   if (path === "/backlot") return <BacklotLanding />;
   if (path === "/about") return <About />;
+  if (path === "/bible-study") return <BibleStudy />;
+  if ((m = match("/bible-study/:slug", path))) return <Study slug={m.slug} />;
   if ((m = match("/journal/:slug", path))) return <Post slug={m.slug} />;
   if (path.split("?")[0] === "/login") return <Login />;
   if (path === "/studio") return team(<Studio />);
   if (path === "/studio/post/new") return owner(<PostEditor key="new" />);
   if ((m = match("/studio/post/:id", path))) return owner(<PostEditor key={m.id} id={m.id} />);
+  if (path === "/studio/study/new") return owner(<PostEditor key="study-new" kind="study" />);
+  if ((m = match("/studio/study/:id", path))) return owner(<PostEditor key={"s" + m.id} id={m.id} kind="study" />);
   if (path === "/studio/film/new") return owner(<FilmEditor key="new" />);
   if ((m = match("/studio/film/:id", path))) return owner(<FilmEditor key={m.id} id={m.id} />);
   if (path === "/studio/backlot") return team(<BacklotPicker />);
