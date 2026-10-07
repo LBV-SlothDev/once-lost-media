@@ -3,7 +3,7 @@ import { Router, useRouter, match } from "./lib/router.jsx";
 import { AuthProvider } from "./lib/auth.jsx";
 import FilmIntro from "./components/FilmIntro.jsx";
 import { Nav, Footer, Toaster, RequireTeam, RequireOwner } from "./components/ui.jsx";
-import { Home, Films, Watch, Journal, Post, Login, Join, BacklotLanding, NotFound } from "./pages/public.jsx";
+import { Home, Films, Watch, Journal, Post, Login, Join, BacklotLanding, About, NotFound } from "./pages/public.jsx";
 import { Studio, PostEditor, FilmEditor, BacklotPage, BacklotPicker } from "./pages/studio.jsx";
 
 const seen = () => {
@@ -23,6 +23,7 @@ function Routes() {
   if ((m = match("/films/:id", path))) return <Watch id={m.id} />;
   if (path === "/journal") return <Journal />;
   if (path === "/backlot") return <BacklotLanding />;
+  if (path === "/about") return <About />;
   if ((m = match("/journal/:slug", path))) return <Post slug={m.slug} />;
   if (path.split("?")[0] === "/login") return <Login />;
   if (path === "/studio") return team(<Studio />);
