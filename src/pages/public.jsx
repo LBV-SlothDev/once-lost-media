@@ -389,7 +389,7 @@ export function About() {
         <div className="hero-beam" aria-hidden="true" />
         <p className="eyebrow">About Once Lost Media</p>
         <h1>I once was lost,<br />but now am found.</h1>
-        <p className="about-lede">Some stories slip through the cracks. The ones nobody wrote down. The ones nobody filmed. The ones that never got told. We go looking for them.</p>
+        <p className="about-lede">We make movies that move you. Stories that make you laugh, hold your breath and cheer, and leave you feeling the love of God long after the credits roll.</p>
       </section>
 
       <section className="band">
@@ -398,18 +398,18 @@ export function About() {
           <div>
             <p className="eyebrow">Who we are</p>
             <h2>An independent film studio, and followers of Christ.</h2>
-            <p>Our faith is the reason we're here. It's why we believe every person has a story worth telling, and why we go looking for the lost, the overlooked and the almost forgotten. It shapes what we make, how we treat our cast and crew, and the kind of studio we want to be.</p>
+            <p>Our faith is the reason we're here. We believe the greatest story ever told is a love story, God's love for every one of us, and every film we make is a chance to share a little of it. It shapes what we make, how we treat our cast and crew, and the kind of studio we want to be.</p>
           </div>
         </div>
       </section>
 
       <section className="band">
         <div className="band-head"><h2>What we make</h2></div>
-        <p className="about-text">Short films, feature films and documentaries about real stories that were almost forgotten. Some are fiction. Some are true. All of them are told with honesty, heart and hope.</p>
+        <p className="about-text">Short films, feature films and documentaries made to entertain, full of heart, humor, adventure and hope. Stories you'll want to watch again and share with the people you love, with the love of God woven through every one.</p>
         <div className="about-make">
-          <article className="card"><span className="bl-num">01</span><h3>Short films</h3><p>Tight, character-driven stories that leave a mark.</p></article>
-          <article className="card"><span className="bl-num">02</span><h3>Feature films</h3><p>Full-length movies with room for the story to breathe.</p></article>
-          <article className="card"><span className="bl-num">03</span><h3>Documentaries</h3><p>True stories, found again and told on camera.</p></article>
+          <article className="card"><span className="bl-num">01</span><h3>Short films</h3><p>Big stories in small packages, with heart in every frame.</p></article>
+          <article className="card"><span className="bl-num">02</span><h3>Feature films</h3><p>Dramas, comedies and adventures with room for the story to breathe.</p></article>
+          <article className="card"><span className="bl-num">03</span><h3>Documentaries</h3><p>Real people and real faith, told with heart.</p></article>
         </div>
       </section>
 
