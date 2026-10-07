@@ -10,6 +10,10 @@ const ENV = import.meta.env || {};
 const URL_ = ENV.VITE_SUPABASE_URL || "";
 const KEY = ENV.VITE_SUPABASE_ANON_KEY || "";
 export const DEMO = !URL_ || !KEY || URL_.includes("YOUR-PROJECT");
+/* Cloudflare Turnstile site key (public). When set, sign-in and sign-up ask for the human check and new accounts are allowed. */
+export const CAPTCHA_KEY = DEMO ? "" : (ENV.VITE_TURNSTILE_SITE_KEY || "");
+export const SIGNUPS = !!CAPTCHA_KEY;
+const withCaptcha = (o, token) => (token ? { ...o, captchaToken: token } : o);
 
 /* ---------------- shared helpers ---------------- */
 export const slugify = (s) =>
@@ -95,20 +99,27 @@ const supa = {
     });
     return () => data.subscription.unsubscribe();
   },
-  async signIn(email) {
+  /* Email link. With create=true this also makes a new account (needs the human check). */
+  async signIn(email, { captcha, create = false, name = "", next = "/studio" } = {}) {
     const c = await sb();
-    const { error } = await c.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: window.location.origin + "/studio" } });
+    const options = withCaptcha({ shouldCreateUser: !!create, emailRedirectTo: window.location.origin + next }, captcha);
+    if (create && name) options.data = { display_name: name.slice(0, 60) };
+    const { error } = await c.auth.signInWithOtp({ email, options });
     if (error) {
-      if (error.status === 429 || /rate limit/i.test(error.message)) throw friendly({ message: "Too many sign-in emails have been sent. Wait about an hour, or sign in with your PIN." });
-      throw friendly(error.status === 422 || /signups not allowed|not found/i.test(error.message) ? { message: "That email isn't on the Once Lost Media team. Ask the site owner to invite you." } : error);
+      if (error.status === 429 || /rate limit/i.test(error.message)) throw friendly({ message: "Too many sign-in emails have been sent. Wait a bit, or sign in with your PIN." });
+      if (/captcha/i.test(error.message)) throw friendly({ message: "The human check didn't go through. Try it again." });
+      throw friendly(error.status === 422 || /signups not allowed|not found/i.test(error.message)
+        ? { message: create ? "New accounts aren't open yet." : "We couldn't find an account for that email. Create one first." }
+        : error);
     }
   },
   /* After the first emailed link, team members sign in with their email and a 6-digit PIN. */
-  async signInWithPin(email, pin) {
+  async signInWithPin(email, pin, captcha) {
     const c = await sb();
-    const { error } = await c.auth.signInWithPassword({ email, password: pin });
+    const { error } = await c.auth.signInWithPassword({ email, password: pin, options: withCaptcha({}, captcha) });
     if (error) {
       if (error.status === 429 || /rate limit|too many/i.test(error.message)) throw friendly({ message: "Too many tries. Wait a few minutes and try again." });
+      if (/captcha/i.test(error.message)) throw friendly({ message: "The human check didn't go through. Try it again." });
       if (/email not confirmed/i.test(error.message)) throw friendly({ message: "Use the emailed sign-in link once first, then set your PIN in the Studio." });
       throw friendly({ message: "That email and PIN don't match. Try again, or email yourself a sign-in link." });
     }
@@ -145,6 +156,75 @@ const supa = {
       const c = await sb();
       const { error } = await c.rpc("team_remove", { p_user: userId });
       if (error) throw friendly(error);
+    },
+  },
+  /* Backlot teams. Anyone signed in can start a team and invite people with a link. */
+  teams: {
+    async mine() {
+      const c = await sb();
+      const { data, error } = await c.rpc("my_workspaces");
+      if (error) throw friendly(error);
+      return data || [];
+    },
+    async create(name) {
+      const c = await sb();
+      const { data, error } = await c.rpc("create_workspace", { p_name: name });
+      if (error) throw friendly(error);
+      return data;
+    },
+    async rename(id, name) {
+      const c = await sb();
+      const { error } = await c.from("workspaces").update({ name: name.trim().slice(0, 80) || "Untitled team" }).eq("id", id);
+      if (error) throw friendly(error);
+    },
+    async remove(id) {
+      const c = await sb();
+      const { error } = await c.rpc("delete_workspace", { p_ws: id });
+      if (error) throw friendly(error);
+    },
+    async members(id) {
+      const c = await sb();
+      const { data, error } = await c.rpc("ws_members", { p_ws: id });
+      if (error) throw friendly(error);
+      return data || [];
+    },
+    async removeMember(id, userId) {
+      const c = await sb();
+      const { error } = await c.from("workspace_members").delete().eq("workspace_id", id).eq("user_id", userId);
+      if (error) throw friendly(error);
+    },
+    async leave(id) {
+      const me = await supa.getUser();
+      return supa.teams.removeMember(id, me.id);
+    },
+    async invites(id) {
+      const c = await sb();
+      const { data, error } = await c.from("workspace_invites").select("token,expires_at,uses,revoked").eq("workspace_id", id).eq("revoked", false).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false });
+      if (error) throw friendly(error);
+      return data || [];
+    },
+    async invite(id) {
+      const c = await sb();
+      const { data, error } = await c.from("workspace_invites").insert({ workspace_id: id }).select("token,expires_at,uses,revoked").single();
+      if (error) throw friendly(error);
+      return data;
+    },
+    async revoke(token) {
+      const c = await sb();
+      const { error } = await c.from("workspace_invites").update({ revoked: true }).eq("token", token);
+      if (error) throw friendly(error);
+    },
+    async inviteInfo(token) {
+      const c = await sb();
+      const { data, error } = await c.rpc("invite_info", { p_token: token });
+      if (error) throw friendly(error);
+      return (data && data[0]) || null;
+    },
+    async join(token) {
+      const c = await sb();
+      const { data, error } = await c.rpc("join_workspace", { p_token: token });
+      if (error) throw friendly(error);
+      return data;
     },
   },
   async isOwner() {
@@ -220,10 +300,10 @@ const supa = {
     if (f.video_path) await c.storage.from("films").remove([f.video_path]);
   },
 
-  async uploadImage(file) {
+  async uploadImage(file, folder = "images") {
     const c = await sb();
     const f = await shrinkImage(file);
-    const path = `images/${Date.now()}-${safeName(f.name)}`;
+    const path = `${folder}/${Date.now()}-${safeName(f.name)}`;
     const { error } = await c.storage.from("media").upload(path, f, { cacheControl: "31536000", contentType: f.type, upsert: false });
     if (error) throw friendly(error);
     return c.storage.from("media").getPublicUrl(path).data.publicUrl;
@@ -260,28 +340,29 @@ const supa = {
     return { promise, abort: () => upload && upload.abort(true) };
   },
 
-  async backlot() {
+  async backlot(ws) {
     const c = await sb();
     const me = await supa.getUser();
     if (!me) throw new Error("Sign in to open Backlot.");
+    if (!ws) throw new Error("Pick a team to open Backlot.");
     const chk = ({ error }) => {
       if (error) throw { code: error.code === "42501" ? "invalid_argument" : "unavailable", message: error.message };
     };
     const store = createDocStore({
-      set: (path, coll, data) => c.from("backlot_docs").upsert({ path, coll, data, updated_by: me.id }).then(chk),
-      update: (path, patch) => c.rpc("backlot_update", { p_path: path, p_patch: patch }).then(chk),
-      delete: (path) => c.from("backlot_docs").delete().eq("path", path).then(chk),
+      set: (path, coll, data) => c.from("backlot_docs").upsert({ workspace_id: ws, path, coll, data, updated_by: me.id }, { onConflict: "workspace_id,path" }).then(chk),
+      update: (path, patch) => c.rpc("backlot_update", { p_ws: ws, p_path: path, p_patch: patch }).then(chk),
+      delete: (path) => c.from("backlot_docs").delete().eq("workspace_id", ws).eq("path", path).then(chk),
     });
     const docs = c
-      .channel("backlot-docs")
-      .on("postgres_changes", { event: "*", schema: "public", table: "backlot_docs" }, (p) => {
+      .channel("backlot-docs-" + ws)
+      .on("postgres_changes", { event: "*", schema: "public", table: "backlot_docs", filter: "workspace_id=eq." + ws }, (p) => {
         if (p.eventType === "DELETE") store.remote(p.old.path, null);
         else store.remote(p.new.path, p.new.data);
       })
       .subscribe();
     const rows = [];
     for (let from = 0; ; from += 1000) {
-      const { data, error } = await c.from("backlot_docs").select("path,data").range(from, from + 999);
+      const { data, error } = await c.from("backlot_docs").select("path,data").eq("workspace_id", ws).range(from, from + 999);
       if (error) throw friendly(error);
       rows.push(...data);
       if (data.length < 1000) break;
@@ -292,7 +373,7 @@ const supa = {
     let state = {};
     let joined = false;
     const handlers = new Set();
-    const pres = c.channel("backlot-presence", { config: { presence: { key: me.id } } });
+    const pres = c.channel("backlot-presence-" + ws, { config: { presence: { key: me.id } } });
     const peers = () =>
       Object.entries(pres.presenceState()).map(([k, arr]) => ({ peer: k, by: k, isMe: k === me.id, presence: arr[arr.length - 1] || {} }));
     pres.on("presence", { event: "sync" }, () => handlers.forEach((h) => h({ peers: peers() })));
@@ -331,22 +412,22 @@ const supa = {
     };
     const versions = {
       async list(n = 100) {
-        const { data, error } = await c.from("backlot_versions").select("id,created_at,created_by,label,auto,scene_count,pages").order("created_at", { ascending: false }).limit(n);
+        const { data, error } = await c.from("backlot_versions").select("id,created_at,created_by,label,auto,scene_count,pages").eq("workspace_id", ws).order("created_at", { ascending: false }).limit(n);
         if (error) throw friendly(error);
         return data;
       },
       async get(id) {
-        const { data, error } = await c.from("backlot_versions").select("*").eq("id", id).maybeSingle();
+        const { data, error } = await c.from("backlot_versions").select("*").eq("workspace_id", ws).eq("id", id).maybeSingle();
         if (error) throw friendly(error);
         return data;
       },
       async save(v) {
-        const { data, error } = await c.from("backlot_versions").insert({ label: v.label, auto: v.auto, data: v.data, scene_count: v.scene_count, pages: v.pages }).select("id,created_at").single();
+        const { data, error } = await c.from("backlot_versions").insert({ workspace_id: ws, label: v.label, auto: v.auto, data: v.data, scene_count: v.scene_count, pages: v.pages }).select("id,created_at").single();
         if (error) throw friendly(error);
         return data;
       },
     };
-    return { db: store.db, user, room, versions, uploadImage: (f) => supa.uploadImage(f), destroy: () => { c.removeChannel(docs); c.removeChannel(pres); } };
+    return { db: store.db, user, room, versions, uploadImage: (f) => supa.uploadImage(f, "backlot/" + ws), destroy: () => { c.removeChannel(docs); c.removeChannel(pres); } };
   },
 };
 
@@ -384,6 +465,23 @@ const demo = {
   },
   async signInWithPin(email) { return demo.signIn(email); },
   async setPin() {},
+  teams: (() => {
+    let list = [{ id: "demo-team", name: "Demo team", role: "owner", is_home: true, members: 1, created_at: new Date().toISOString() }];
+    return {
+      async mine() { return list.slice(); },
+      async create(name) { const t = { id: "demo-" + Date.now(), name: name || "Untitled team", role: "owner", is_home: false, members: 1, created_at: new Date().toISOString() }; list.push(t); return t.id; },
+      async rename(id, name) { list = list.map((t) => (t.id === id ? { ...t, name } : t)); },
+      async remove(id) { list = list.filter((t) => t.id !== id); },
+      async members() { return [{ user_id: "demo", display_name: "You", role: "owner", joined_at: new Date().toISOString() }]; },
+      async removeMember() {},
+      async leave(id) { list = list.filter((t) => t.id !== id); },
+      async invites() { return []; },
+      async invite() { return { token: "demo-invite", expires_at: new Date(Date.now() + 14 * 864e5).toISOString(), uses: 0, revoked: false }; },
+      async revoke() {},
+      async inviteInfo() { return { team_name: "Demo team", valid: true, already_member: true }; },
+      async join() { return "demo-team"; },
+    };
+  })(),
   team: (() => {
     let people = [{ user_id: "demo-owner", email: "you@oncelostmedia.com", display_name: "You", is_owner: true, has_pin: true, must_change_pin: false, last_sign_in_at: new Date().toISOString(), created_at: new Date().toISOString() }];
     return {

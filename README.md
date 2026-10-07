@@ -68,3 +68,33 @@ If you change the Supabase values later, click **Manual Deploy > Clear build cac
 | Database setup | `supabase/schema.sql` |
 
 Visitors see the intro once per browser session. "Replay the opening reel" in the footer plays it again.
+
+## Backlot teams and public sign-ups
+
+The database part (private teams) is already set up. Anyone with an account can start up to 3 teams,
+invite up to 25 people per team with a link, and only members of a team can see or change its projects.
+The original Backlot project is the "Once Lost Media" team.
+
+Public sign-ups stay **off** until you finish these steps, in this order.
+
+### 1. Human check (Cloudflare Turnstile, free)
+1. Create a free Cloudflare account and open **Turnstile → Add widget**.
+2. Widget name: `Once Lost Media`. Hostnames: `oncelostmedia.com` and `www.oncelostmedia.com`. Mode: **Managed**.
+3. Copy the **Site key** and the **Secret key**.
+4. Supabase → **Authentication → Attack Protection → Enable CAPTCHA protection** → provider **Cloudflare Turnstile** → paste the **Secret key** → Save.
+5. Render → once-lost-media → **Environment** → add `VITE_TURNSTILE_SITE_KEY` = the **Site key** → Save and deploy.
+
+### 2. Emails that reach anyone (Resend, free: 3,000 a month)
+Supabase's built-in email only reaches your own Supabase team, so new people can't confirm their accounts without this.
+1. Create a free account at resend.com → **Domains → Add domain** → `oncelostmedia.com`.
+2. Add the DNS records Resend shows at GoDaddy (**My Products → DNS** for oncelostmedia.com), then click **Verify** in Resend.
+3. Resend → **API Keys → Create** (sending access).
+4. Supabase → **Authentication → Emails → SMTP Settings → Enable custom SMTP**:
+   host `smtp.resend.com`, port `465`, username `resend`, password = the API key,
+   sender email `backlot@oncelostmedia.com`, sender name `Once Lost Media`.
+
+### 3. Open the doors
+Supabase → **Authentication → Sign In / Providers** → turn **Allow new users to sign up** ON and keep **Confirm email** ON.
+
+People can then choose **Create an account** on the sign-in page, pass the human check, confirm their email
+and start their own team. You can see and remove any account from the **Accounts** card in your Studio.

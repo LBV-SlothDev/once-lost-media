@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth.jsx";
 import { Link, useRouter } from "../lib/router.jsx";
 import { renderMarkdown } from "../lib/markdown.js";
 import { fmtDate, fmtBytes } from "../lib/format.js";
-import { Loading, ErrorNote, useLoad, toast, ConfirmButton } from "../components/ui.jsx";
+import { Loading, ErrorNote, useLoad, toast, ConfirmButton, Empty } from "../components/ui.jsx";
 import { mountBacklot } from "../backlot/backlot.js";
 
 /* ---------------- Dashboard ---------------- */
@@ -87,10 +87,7 @@ export function Studio() {
         </section>
 
         </>)}
-        <section className="card backlot-card">
-          <div className="card-head"><h2>Backlot</h2><Link to="/studio/backlot" className="btn gold sm">Open Backlot</Link></div>
-          <p>Write the screenplay together, storyboard every shot, and send call sheets with call times. Everyone on the team sees changes live.</p>
-        </section>
+        <TeamsCard me={user} />
 
         {!DEMO && (
           <section className="card">
@@ -160,8 +157,8 @@ function TeamCard({ me }) {
 
   return (
     <section className="card team-card">
-      <div className="card-head"><h2>Team</h2><span className="muted">{team.data ? team.data.length : ""}</span></div>
-      <p className="hint" style={{ marginTop: 0 }}>Team members can use Backlot. Only you can write journal entries and upload films.</p>
+      <div className="card-head"><h2>Accounts</h2><span className="muted">{team.data ? team.data.length : ""}</span></div>
+      <p className="hint" style={{ marginTop: 0 }}>Everyone with an account on the site. People you add here join the Once Lost Media team in Backlot. Only you can write journal entries and upload films. Remove spam accounts here.</p>
       {team.loading ? <Loading /> : team.error ? <ErrorNote error={team.error} /> : (
         <ul className="rows">
           {team.data.map((p) => (
@@ -512,12 +509,37 @@ export function FilmEditor({ id }) {
 }
 
 /* ---------------- Backlot ---------------- */
-export function BacklotPage() {
+const lastTeam = { get: () => { try { return localStorage.getItem("olm.lastTeam") || ""; } catch { return ""; } }, set: (v) => { try { localStorage.setItem("olm.lastTeam", v); } catch {} } };
+
+/* /studio/backlot: go straight to the team you used last, or pick one. */
+export function BacklotPicker() {
+  const { navigate } = useRouter();
+  const { user } = useAuth();
+  const teams = useLoad(() => api.teams.mine(), []);
+  useEffect(() => {
+    if (!teams.data) return;
+    const last = lastTeam.get();
+    const pick = teams.data.find((t) => t.id === last) || (teams.data.length === 1 ? teams.data[0] : null);
+    if (pick) navigate("/studio/backlot/" + pick.id, { replace: true });
+  }, [teams.data, navigate]);
+  if (teams.loading || (teams.data && (teams.data.length === 1 || teams.data.some((t) => t.id === lastTeam.get())))) return <main className="page"><Loading label="Opening Backlot" /></main>;
+  return (
+    <main className="page wide">
+      <header className="page-head"><p className="eyebrow">Backlot</p><h1>Pick a team</h1></header>
+      {teams.error ? <ErrorNote error={teams.error} /> : <div className="studio-grid"><TeamsCard me={user} /></div>}
+    </main>
+  );
+}
+
+export function BacklotPage({ ws }) {
   const ref = useRef(null);
   const [error, setError] = useState(null);
+  const teams = useLoad(() => api.teams.mine(), []);
+  const team = teams.data && teams.data.find((t) => t.id === ws);
   useEffect(() => {
     let alive = true, unmount = null, adapters = null;
-    api.backlot().then((ad) => {
+    lastTeam.set(ws);
+    api.backlot(ws).then((ad) => {
       adapters = ad;
       if (!alive) { ad.destroy(); return; }
       unmount = mountBacklot(ref.current, ad);
@@ -527,11 +549,118 @@ export function BacklotPage() {
       if (unmount) unmount();
       if (adapters) adapters.destroy();
     };
-  }, []);
+  }, [ws]);
+  if (teams.data && !team) return (
+    <main className="page narrow"><Empty title="You're not on this team"><p>Ask the team owner for an invite link, or open one of your own teams.</p><Link to="/studio" className="btn gold">Go to the Studio</Link></Empty></main>
+  );
   return (
     <main className="backlot-host">
+      <div className="team-strip"><span className="muted">Team</span> <strong>{team ? team.name : "…"}</strong>{teams.data && teams.data.length > 1 && <Link to="/studio" className="linkish">Switch team</Link>}<Link to="/studio" className="linkish">Invite people</Link></div>
       <ErrorNote error={error} />
       <div ref={ref} className="backlot"><div style={{ padding: 32 }}><Loading label="Opening Backlot" /></div></div>
     </main>
+  );
+}
+
+/* ---------------- Backlot teams ---------------- */
+function TeamsCard({ me }) {
+  const [tick, setTick] = useState(0);
+  const teams = useLoad(() => api.teams.mine(), [tick]);
+  const [open, setOpen] = useState(null);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const { navigate } = useRouter();
+  const create = async (e) => {
+    e.preventDefault(); setError(null); setBusy(true);
+    try { const id = await api.teams.create(name.trim()); setName(""); toast("Team created."); navigate("/studio/backlot/" + id); }
+    catch (err) { setError(err); }
+    setBusy(false);
+  };
+  const refresh = () => setTick((t) => t + 1);
+  return (
+    <section className="card backlot-card teams-card" id="teams">
+      <div className="card-head"><h2>Backlot teams</h2><span className="muted">{teams.data ? teams.data.length : ""}</span></div>
+      <p className="hint" style={{ marginTop: 0 }}>Write the screenplay, storyboard every shot and plan call sheets together, live. Each team's projects are private to the people on it.</p>
+      {teams.loading ? <Loading /> : teams.error ? <ErrorNote error={teams.error} /> : teams.data.length ? (
+        <ul className="rows">
+          {teams.data.map((t) => (
+            <li key={t.id} className="team-row">
+              <div className="team-line">
+                <div className="row-main">
+                  <span className="row-title">{t.name}</span>
+                  <span className="row-sub">{t.role === "owner" ? "You run this team" : "Member"} · {t.members} {t.members === 1 ? "person" : "people"}</span>
+                </div>
+                <button className="btn ghost sm" onClick={() => setOpen(open === t.id ? null : t.id)} aria-expanded={open === t.id}>{open === t.id ? "Close" : t.role === "owner" ? "Invite & manage" : "Members"}</button>
+                <Link to={"/studio/backlot/" + t.id} className="btn gold sm">Open</Link>
+              </div>
+              {open === t.id && <TeamPanel team={t} me={me} onChange={refresh} onGone={() => { setOpen(null); refresh(); }} />}
+            </li>
+          ))}
+        </ul>
+      ) : <p className="muted">You're not on a team yet. Start one below, or open an invite link someone sent you.</p>}
+      <form className="fm inline" onSubmit={create} style={{ marginTop: 14 }}>
+        <label htmlFor="new-team" className="sr">New team name</label>
+        <input id="new-team" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="New team name, e.g. Night Shift Films" />
+        <button className="btn" disabled={busy}>{busy ? "Starting…" : "Start a team"}</button>
+      </form>
+      <ErrorNote error={error} />
+    </section>
+  );
+}
+
+function TeamPanel({ team, me, onChange, onGone }) {
+  const owner = team.role === "owner";
+  const [tick, setTick] = useState(0);
+  const members = useLoad(() => api.teams.members(team.id), [tick]);
+  const invites = useLoad(() => (owner ? api.teams.invites(team.id) : Promise.resolve([])), [tick]);
+  const [rename, setRename] = useState(team.name);
+  const link = (tok) => `${location.origin}/join/${tok}`;
+  const copy = (tok) => navigator.clipboard.writeText(link(tok)).then(() => toast("Invite link copied. Send it to your crew."), () => toast("Copy isn't available here. Select the link and copy it."));
+  const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg); setTick((t) => t + 1); onChange(); } catch (e) { toast(e.message); } };
+  return (
+    <div className="team-panel">
+      {owner && (
+        <div className="tp-block">
+          <h3>Invite people</h3>
+          <p className="hint" style={{ margin: 0 }}>Anyone with the link can join this team for 14 days, up to 25 people. They'll need a free account.</p>
+          {invites.loading ? <Loading /> : (invites.data || []).map((i) => (
+            <div key={i.token} className="invite-row">
+              <input className="input" readOnly value={link(i.token)} onFocus={(e) => e.target.select()} aria-label="Invite link" />
+              <button className="btn sm" onClick={() => copy(i.token)}>Copy</button>
+              <ConfirmButton className="btn ghost sm" confirm="Turn off?" onConfirm={() => act(() => api.teams.revoke(i.token), "Invite link turned off.")}>Turn off</ConfirmButton>
+              <span className="row-sub">Expires {fmtDate(i.expires_at)} · used {i.uses}×</span>
+            </div>
+          ))}
+          <button className="btn gold sm" style={{ justifySelf: "start" }} onClick={() => act(async () => { const i = await api.teams.invite(team.id); copy(i.token); })}>Create invite link</button>
+        </div>
+      )}
+      <div className="tp-block">
+        <h3>Members</h3>
+        {members.loading ? <Loading /> : members.error ? <ErrorNote error={members.error} /> : (
+          <ul className="rows compact">
+            {members.data.map((m) => (
+              <li key={m.user_id}>
+                <div className="row-main"><span className="row-title">{m.display_name || "Teammate"}{m.user_id === me.id ? " (you)" : ""}</span><span className="row-sub">Joined {fmtDate(m.joined_at)}</span></div>
+                <span className={"pill " + (m.role === "owner" ? "live" : "draft")}>{m.role === "owner" ? "Owner" : "Member"}</span>
+                {owner && m.user_id !== me.id && <ConfirmButton className="btn ghost sm" confirm="Remove?" onConfirm={() => act(() => api.teams.removeMember(team.id, m.user_id), "Removed from the team.")}>Remove</ConfirmButton>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="tp-block">
+        {owner ? (<>
+          <form className="fm inline" onSubmit={(e) => { e.preventDefault(); act(() => api.teams.rename(team.id, rename), "Team renamed."); }}>
+            <label htmlFor={"rn-" + team.id} className="sr">Team name</label>
+            <input id={"rn-" + team.id} className="input" value={rename} maxLength={80} onChange={(e) => setRename(e.target.value)} />
+            <button className="btn sm">Rename</button>
+          </form>
+          {!team.is_home && <ConfirmButton className="btn danger sm" confirm="Delete the team and all its projects?" onConfirm={async () => { try { await api.teams.remove(team.id); toast("Team deleted."); onGone(); } catch (e) { toast(e.message); } }}>Delete team</ConfirmButton>}
+        </>) : (
+          <ConfirmButton className="btn ghost sm" confirm="Leave this team?" onConfirm={async () => { try { await api.teams.leave(team.id); toast("You left the team."); onGone(); } catch (e) { toast(e.message); } }}>Leave team</ConfirmButton>
+        )}
+      </div>
+    </div>
   );
 }

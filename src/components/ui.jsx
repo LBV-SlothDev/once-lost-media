@@ -259,3 +259,40 @@ export function ConfirmButton({ children, confirm = "Click again to confirm", on
     </button>
   );
 }
+
+/* Cloudflare Turnstile "are you human" check. Calls onToken(token) when passed, onToken(null) when it expires.
+   Renders nothing when no site key is set (demo mode or before sign-ups are turned on). */
+let turnstileLoad;
+const loadTurnstile = () =>
+  (turnstileLoad ||= new Promise((res, rej) => {
+    if (window.turnstile) return res(window.turnstile);
+    const s = document.createElement("script");
+    s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    s.async = true;
+    s.onload = () => res(window.turnstile);
+    s.onerror = () => { turnstileLoad = null; rej(new Error("The human check couldn't load. Check your connection and reload.")); };
+    document.head.appendChild(s);
+  }));
+
+export function HumanCheck({ siteKey, onToken, resetKey = 0 }) {
+  const box = useRef(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => {
+    if (!siteKey) return;
+    let id = null, alive = true;
+    onToken(null);
+    loadTurnstile().then((ts) => {
+      if (!alive || !box.current) return;
+      id = ts.render(box.current, {
+        sitekey: siteKey, theme: "dark", action: "signin",
+        callback: (t) => onToken(t),
+        "expired-callback": () => onToken(null),
+        "error-callback": () => onToken(null),
+      });
+    }, setErr);
+    return () => { alive = false; if (id != null && window.turnstile) window.turnstile.remove(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteKey, resetKey]);
+  if (!siteKey) return null;
+  return (<div className="human-check"><div ref={box} /><ErrorNote error={err} /></div>);
+}
