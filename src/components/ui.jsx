@@ -18,6 +18,7 @@ export function Nav({ onReplay }) {
             <Link to="/films">Films</Link>
             <Link to="/journal">Journal</Link>
             <Link to="/backlot">Backlot</Link>
+            <Link to="/about">About</Link>
             {user && <Link to="/studio">Studio</Link>}
           </nav>
           <MoreMenu user={user} isOwner={isOwner} onReplay={onReplay} />
@@ -37,6 +38,7 @@ function MoreMenu({ user, isOwner, onReplay }) {
     { label: "Home", to: "/" },
     { label: "Films", to: "/films" },
     { label: "Journal", to: "/journal" },
+    { label: "About", to: "/about" },
     "sep",
     ...(user
       ? [
@@ -109,6 +111,7 @@ export function Footer({ onReplay }) {
           <span>© {new Date().getFullYear()} Once Lost Media. All rights reserved.</span>
         </div>
         <div className="foot-links">
+          <Link to="/about">About</Link>
           <button className="linkish" onClick={onReplay}>Replay the opening reel</button>
           {user ? <Link to="/studio">Studio</Link> : <Link to="/login">Team sign in</Link>}
         </div>
