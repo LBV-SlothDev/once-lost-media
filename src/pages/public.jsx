@@ -517,8 +517,7 @@ export function About() {
       <section className="about-hero">
         <div className="hero-beam" aria-hidden="true" />
         <p className="eyebrow">About Once Lost Media</p>
-        <h1>I once was lost,<br />but now am found.</h1>
-        <p className="about-lede">We make movies that move you. Stories that make you laugh, hold your breath and cheer, and leave you feeling the love of God long after the credits roll.</p>
+        <h1 className="about-big"><span>We make movies that move you.</span> Stories that make you laugh, hold your breath and cheer, and leave you feeling the love of God long after the credits roll.</h1>
       </section>
 
       <section className="band">
