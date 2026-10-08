@@ -239,3 +239,18 @@
   .backlot .ch-head{grid-template-columns:96px minmax(0,1fr)}
   .backlot .chf,.backlot .chf.row3{grid-template-columns:minmax(0,1fr)}
 }
+
+/* table read */
+.backlot .blk.reading{background:color-mix(in srgb,var(--accent) 22%,transparent);box-shadow:-6px 0 0 color-mix(in srgb,var(--accent) 22%,transparent),6px 0 0 color-mix(in srgb,var(--accent) 22%,transparent)}
+.backlot .reader{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 24px);background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:8px 10px;box-shadow:var(--shadow)}
+.backlot .reader .rd-now{min-width:170px;font-size:13px;color:var(--ink)}
+.backlot .reader .rd-now span{color:var(--muted);margin-left:6px;font-size:12px}
+.backlot .reader select.field{width:auto;max-width:220px}
+.backlot .reader .rd-opt{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+.backlot .reader input[type=range]{width:80px;accent-color:var(--accent)}
+.backlot .reader .x{border:0;background:transparent;font-size:15px;color:var(--muted);padding:4px 6px}
+.backlot .rdv input[type=range]{width:100%;accent-color:var(--accent);margin-top:8px}
+.backlot .rdv small{color:var(--muted);font-weight:400}
+.backlot h3 #chHear{margin-left:10px;vertical-align:middle;font-size:12px}
+@media (max-width:640px){.backlot .reader .rd-now{min-width:0;flex-basis:100%;text-align:center}.backlot .reader select.field{max-width:150px}}
+.backlot .reader:not([hidden]) ~ .toast{bottom:calc(110px + env(safe-area-inset-bottom,0px))}
