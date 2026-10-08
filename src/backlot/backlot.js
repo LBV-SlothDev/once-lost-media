@@ -1315,8 +1315,9 @@ function hdAutoMap(){
   names.slice().sort((a,b)=>lines[b]-lines[a]||a.localeCompare(b)).forEach(x=>{
     const p=S.chars[ckey(x)]||{}; if((HD.voices||[]).some(v=>v.id===p[vk])) return;
     const list=hdCands(guessType(p,x), n&&n.id); if(!list.length) return; const h=hashStr(x);
-    let pick=null; for(let i=0;i<list.length;i++){ const v=list[(h+i)%list.length]; if(!used.has(v.id)){ pick=v; break; } }
-    if(!pick){ const ty=guessType(p,x), g=/woman|girl/.test(ty)?"f":/man|boy/.test(ty)?"m":""; const wide=(HD.voices||[]).filter(v=>(!g||v.g===g)&&!used.has(v.id)&&!(n&&v.id===n.id)); if(wide.length) pick=wide[h%wide.length]; }
+    let pick=null; const us=list.filter(v=>/american/i.test(v.accent)); /* American voices first, since most scripts here are set in the States */
+    for(const L of [us,list]){ for(let i=0;i<L.length&&!pick;i++){ const v=L[(h+i)%L.length]; if(!used.has(v.id)) pick=v; } if(pick) break; }
+    if(!pick){ const ty=guessType(p,x), g=/woman|girl/.test(ty)?"f":/man|boy/.test(ty)?"m":""; const wide=(HD.voices||[]).filter(v=>(!g||v.g===g)&&!used.has(v.id)&&!(n&&v.id===n.id)); const wu=wide.filter(v=>/american/i.test(v.accent)); const W=wu.length?wu:wide; if(W.length) pick=W[h%W.length]; }
     pick=pick||list[h%list.length]; used.add(pick.id); map[x]=pick; });
   hdAutoMap.sig=sig; hdAutoMap.map=map; return map;
 }
