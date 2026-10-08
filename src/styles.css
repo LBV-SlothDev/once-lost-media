@@ -420,3 +420,4 @@ a.about-link:hover { border-color: var(--gold-lo); transform: translateY(-2px); 
 @media (max-width: 880px) { .nav-links { display: none; } }
 .about-hero h1.about-big { max-width: 34ch; font-size: clamp(28px, 3.6vw, 48px); line-height: 1.25; font-weight: 500; color: var(--ink); }
 .about-hero h1.about-big span { display: block; margin-bottom: 14px; font-size: 1.35em; line-height: 1.1; color: var(--gold-hi); }
+.foot-links { flex-wrap: wrap; row-gap: 10px; }
