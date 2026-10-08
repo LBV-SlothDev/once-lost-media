@@ -1175,25 +1175,52 @@ $("#clearScript").onclick=async()=>{
 /* ---------- table read (uses the free voices built into the device) ---------- */
 const TTS = (typeof window!=="undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance!=="undefined") ? window.speechSynthesis : null;
 const R = { on:false, playing:false, queue:[], i:0, voices:[], tok:0, utt:null };
+const FEM = /\b(female|woman|samantha|karen|moira|tessa|victoria|fiona|susan|allison|ava|zoe|serena|kate|kathy|vicki|veena|nicky|joana|martha|catherine|sara|amelie|anna|alice|ellen|ioana|zira|aria|jenny|libby|sonia|natasha|clara|emma|olivia|michelle|ana|hazel|heera|linda|eva|paulina|monica|luciana|shelley|sandy|flo|grandma)\b/i;
+const MAL = /\b(male|man|alex|daniel|fred|tom|oliver|arthur|aaron|rishi|david|mark|guy|ryan|james|george|thomas|lee|gordon|bruce|ralph|junior|albert|reed|rocko|eddy|grandpa|christopher|eric|roger|steffan|william|liam|brian|andrew|ravi)\b/i;
+const vGender = v => { const n=v.name||""; if(/female/i.test(n)) return "f"; if(/\bmale\b/i.test(n)) return "m"; if(FEM.test(n)&&!MAL.test(n)) return "f"; if(MAL.test(n)) return "m"; return "?"; };
+const VTYPES = [["","Automatic"],["man","Man"],["woman","Woman"],["oldman","Older man"],["oldwoman","Older woman"],["boy","Boy"],["girl","Girl"]];
 function loadVoices(){
   if(!TTS||dead) return;
   const all=TTS.getVoices(); const en=all.filter(v=>/^en/i.test(v.lang));
   R.voices=(en.length?en:all).slice().sort((a,b)=>a.name.localeCompare(b.name));
-  if(R.on) fillNarr();
+  if(R.on) fillBar();
+  const co=$("#castOv"); if(co&&!co.hidden) renderCast();
   if(S.view==="chars"&&!chFocused()) renderChars();
 }
-if(TTS){ loadVoices(); if(TTS.addEventListener) TTS.addEventListener("voiceschanged",loadVoices); else TTS.onvoiceschanged=loadVoices; }
 const hashStr = s => { let h=2166136261; for(const ch of String(s)){ h^=ch.charCodeAt(0); h=Math.imul(h,16777619); } return h>>>0; };
 const rdPref = (k,d) => { try{ const v=localStorage.getItem("backlot.read."+k); return v==null?d:v; }catch(e){ return d; } };
 const rdSet = (k,v) => { try{ localStorage.setItem("backlot.read."+k,String(v)); }catch(e){} };
-function narrVoice(){ const n=rdPref("narr",""); return R.voices.find(v=>v.voiceURI===n) || R.voices.find(v=>v.default) || R.voices[0] || null; }
+function narrVoice(){ const n=(S.meta&&S.meta.tts_narr)||rdPref("narr",""); return R.voices.find(v=>v.voiceURI===n||v.name===n) || R.voices.find(v=>v.default) || R.voices[0] || null; }
 function savedVoice(p){ return p && p.tts_voice ? R.voices.find(v=>v.voiceURI===p.tts_voice||v.name===p.tts_voice) || null : null; }
+const F_NAMES=new Set("MARY PATRICIA JENNIFER LINDA ELIZABETH BARBARA SUSAN JESSICA SARAH KAREN LISA NANCY BETTY SANDRA MARGARET ASHLEY KIMBERLY EMILY DONNA MICHELLE CAROL AMANDA MELISSA DEBORAH STEPHANIE DOROTHY REBECCA SHARON LAURA CYNTHIA AMY KATHLEEN ANGELA SHIRLEY BRENDA EMMA ANNA PAMELA NICOLE SAMANTHA KATHERINE CHRISTINE HELEN DEBRA RACHEL CAROLYN JANET MARIA CATHERINE HEATHER DIANE OLIVIA JULIE JOYCE VICTORIA RUTH VIRGINIA LAUREN KELLY CHRISTINA JOAN EVELYN JUDITH ANDREA HANNAH MEGAN CHERYL JACQUELINE MARTHA MADISON TERESA GLORIA SARA JANICE ANN KATHRYN ABIGAIL SOPHIA FRANCES JEAN ALICE JUDY ISABELLA JULIA GRACE AMBER DENISE DANIELLE MARILYN BEVERLY CHARLOTTE NATALIE THERESA DIANA BRITTANY DORIS KAYLA ALEXIS LORI MARIE GINA TASHA SHERYL LORRAINE LORNA KEISHA AALIYAH IMANI JASMINE TIFFANY MONIQUE TANYA LATOYA EBONY DESTINY NAOMI ESTHER RUTHIE MAYA ZOE CHLOE LILY AVA MIA ELLA RUBY ROSA ROSE PEARL HAZEL MAE BESSIE ETTA".split(" "));
+const M_NAMES=new Set("JAMES ROBERT JOHN MICHAEL DAVID WILLIAM RICHARD JOSEPH THOMAS CHRISTOPHER CHARLES DANIEL MATTHEW ANTHONY MARK DONALD STEVEN ANDREW PAUL JOSHUA KENNETH KEVIN BRIAN GEORGE TIMOTHY RONALD JASON EDWARD JEFFREY RYAN JACOB GARY NICHOLAS ERIC JONATHAN STEPHEN LARRY JUSTIN SCOTT BRANDON BENJAMIN SAMUEL GREGORY ALEXANDER PATRICK FRANK RAYMOND JACK DENNIS JERRY TYLER AARON JOSE ADAM NATHAN HENRY ZACHARY DOUGLAS PETER KYLE NOAH ETHAN JEREMY WALTER CHRISTIAN KEITH ROGER TERRY AUSTIN SEAN GERALD CARL HAROLD DYLAN ARTHUR LAWRENCE JORDAN JESSE BRYAN BILLY BRUCE GABRIEL JOE LOGAN ALAN JUAN ALBERT WILLIE ELIJAH WAYNE RANDY VINCENT MASON ROY RALPH BOBBY RUSSELL BRADLEY PHILIP EUGENE DALE MARCUS AMOS HECTOR RAY TINY DARNELL DESHAWN JAMAL TYRONE ANDRE CALVIN CURTIS LEON OTIS CLARENCE ISAAC ELI LUKE CALEB MOSES HOSEA LEVI".split(" "));
+function guessFromScript(name){
+  if(!guessFromScript.cache||guessFromScript.sig!==S.scenes.length){ guessFromScript.cache={}; guessFromScript.sig=S.scenes.length;
+    S.scenes.forEach(sc=>sc.blocks.forEach(b=>{ if(b.t!=="action") return; const re=/\b([A-Z][A-Z'.-]+(?:\s[A-Z][A-Z'.-]+){0,2})\s*\((\d{1,2})s?\b/g; let m; while((m=re.exec(b.x||""))){ const nm=m[1].trim(), first=nm.split(" ")[0]; [nm,first].forEach(k=>{ if(!(k in guessFromScript.cache)) guessFromScript.cache[k]=+m[2]; }); } })); }
+  const c=guessFromScript.cache; const first=name.split(/\s+/)[0]; return c[name]!=null?c[name]:c[first]!=null?c[first]:null;
+}
+function guessType(p,name){
+  if(p.tts_type) return p.tts_type;
+  const pr=(p.pronouns||"").toLowerCase(); let age=parseInt(p.age,10);
+  if(!(age>0)&&name){ const a=guessFromScript(name); if(a!=null) age=a; }
+  const old=age>=62, kid=age>0&&age<13;
+  const n=(name||"").toUpperCase(), words=n.split(/[^A-Z']+/).filter(Boolean);
+  let g=/\bshe\b|\bher\b/.test(pr)?"f":/\bhe\b|\bhim\b/.test(pr)?"m":"";
+  if(!g&&/\b(MISS|MRS|MS|SISTER|MOTHER|MAMA|MOM|GRANDMA|AUNT|LADY|WOMAN|GIRL|QUEEN|WAITRESS|NUN|WIFE|DAUGHTER)\b/.test(n)) g="f";
+  if(!g&&/\b(MR|BROTHER|FATHER|DADDY|DAD|GRANDPA|UNCLE|MAN|BOY|KING|SIR|HUSBAND|SON|BOUNCER|DEACON)\b/.test(n)) g="m";
+  if(!g){ const w=words.find(x=>F_NAMES.has(x)||M_NAMES.has(x)); if(w) g=F_NAMES.has(w)?"f":"m"; }
+  if(!g) return kid?"boy":"";
+  return kid?(g==="f"?"girl":"boy"):old?(g==="f"?"oldwoman":"oldman"):(g==="f"?"woman":"man");
+}
 function charVoice(name){
-  const p=S.chars[ckey(name)]||{}; const pick=savedVoice(p); const h=hashStr(name);
-  const narr=narrVoice(); const pool=R.voices.filter(v=>v!==narr);
-  const voice=pick || (pool.length?pool[h%pool.length]:narr);
-  const auto=pool.length>=6?1:0.8+(h%9)*0.05;
-  return { voice, pitch:p.tts_pitch?+p.tts_pitch:(pick?1:auto), rate:p.tts_rate?+p.tts_rate:1 };
+  const p=S.chars[ckey(name)]||{}; const pick=savedVoice(p); const h=hashStr(name); const type=guessType(p,name);
+  const want=/woman|girl/.test(type)?"f":/man|boy/.test(type)?"m":"";
+  const narr=narrVoice(); let pool=R.voices.filter(v=>v!==narr); if(!pool.length) pool=R.voices.slice();
+  const fit=want?pool.filter(v=>vGender(v)===want):pool; const list=fit.length?fit:pool;
+  const voice=pick || list[h%Math.max(1,list.length)] || narr;
+  const typePitch={boy:1.35,girl:1.4,oldman:0.85,oldwoman:0.9}[type]||1, typeRate={oldman:0.92,oldwoman:0.93,boy:1.05,girl:1.05}[type]||1;
+  const autoVar=(!pick&&!p.tts_pitch&&list.length<4)?0.9+(h%5)*0.05:1;
+  return { voice, pitch:p.tts_pitch?+p.tts_pitch:typePitch*autoVar, rate:p.tts_rate?+p.tts_rate:typeRate, type };
 }
 const sayHeading = x => x.replace(/^\s*#?\d+[A-Z]?\s+/,"").replace(/^(INT\.?\s*\/\s*EXT|I\/E)\.?\s*/i,"Interior, exterior. ").replace(/^INT\.?\s+/i,"Interior. ").replace(/^EXT\.?\s+/i,"Exterior. ").replace(/\s+[-–—]\s+/g,". ").toLowerCase();
 function chunks(t){
@@ -1204,29 +1231,40 @@ function chunks(t){
 }
 function buildQueue(){
   const q=[]; const act=rdPref("action","1")==="1", head=rdPref("head","1")==="1";
-  S.scenes.forEach(sc=>{ let who=null;
+  S.scenes.forEach(sc=>{ let who=null, ci=-1;
     sc.blocks.forEach((b,i)=>{
       const x=(b.x||"").trim();
-      if(b.t==="character"){ who=cleanChar(x)||null; return; }
+      if(b.t==="character"){ who=cleanChar(x)||null; ci=i; return; }
       if(b.t==="paren") return;
-      if(b.t==="dialogue"){ if(x) q.push({sc:sc.id,i,who,text:x}); return; }
+      if(b.t==="dialogue"){ if(x) q.push({sc:sc.id,i,ci,who,text:x}); return; }
       who=null; if(!x) return;
-      if(b.t==="scene"){ if(head) q.push({sc:sc.id,i,who:null,text:sayHeading(x)}); }
-      else if(act) q.push({sc:sc.id,i,who:null,text:b.t==="transition"?x.toLowerCase():x});
+      if(b.t==="scene"){ if(head) q.push({sc:sc.id,i,ci:-1,who:null,text:sayHeading(x)}); }
+      else if(act) q.push({sc:sc.id,i,ci:-1,who:null,text:b.t==="transition"?x.toLowerCase():x});
     });
   });
   return q;
 }
+const wordCount = t => (t.match(/\S+/g)||[]).length;
+function timeLeft(){ let w=0; for(let k=R.i;k<R.queue.length;k++) w+=wordCount(R.queue[k].text)+2; const sec=w/(2.6*(+rdPref("rate","1")||1)); const m=Math.floor(sec/60); return m>=60?`${Math.floor(m/60)} h ${m%60} min`:m?`${m} min`:`${Math.ceil(sec)} sec`; }
 function markReading(it){
-  $$("#scenes .blk.reading").forEach(b=>b.classList.remove("reading"));
-  if(!it){ $("#rdNow").textContent=""; return; }
-  const el=$(`#scenes section.scene[data-id="${it.sc}"] .blk[data-i="${it.i}"]`);
+  $$("#scenes .blk.reading,#scenes .blk.reading-who").forEach(b=>b.classList.remove("reading","reading-who"));
+  if(!it) return;
+  const sec=$(`#scenes section.scene[data-id="${it.sc}"]`);
+  const el=sec&&sec.querySelector(`.blk[data-i="${it.i}"]`);
   if(el){ el.classList.add("reading"); el.scrollIntoView({block:"center",behavior:"smooth"}); }
-  $("#rdNow").innerHTML=`<b>Sc. ${sceneNo(it.sc)}</b> · ${esc(it.who||"Narrator")} <span>${R.i+1} / ${R.queue.length}</span>`;
+  if(sec&&it.ci>=0){ const w=sec.querySelector(`.blk[data-i="${it.ci}"]`); if(w) w.classList.add("reading-who"); }
+  updateBar();
+}
+function updateBar(){
+  const it=R.queue[R.i]; if(!it||!$("#rdNow")) return;
+  $("#rdNow").innerHTML=`<b>${esc(it.who||"Narrator")}</b><span>${esc(it.text.length>90?it.text.slice(0,88)+"…":it.text)}</span>`;
+  const pr=$("#rdSeek"); pr.max=String(Math.max(0,R.queue.length-1)); if(document.activeElement!==pr) pr.value=String(R.i);
+  $("#rdPos").textContent=`Line ${R.i+1} of ${R.queue.length} · about ${timeLeft()} left`;
+  const sel=$("#rdScene"); if(sel&&document.activeElement!==sel) sel.value=it.sc;
 }
 function speakItem(){
   if(!R.playing) return;
-  const it=R.queue[R.i]; if(!it){ stopRead(); toast("That's the end of the script."); return; }
+  const it=R.queue[R.i]; if(!it){ R.i=Math.max(0,R.queue.length-1); pauseRead(); toast("That's the end of the script."); return; }
   markReading(it);
   const tok=++R.tok, vs=it.who?charVoice(it.who):{voice:narrVoice(),pitch:1,rate:1}, base=+rdPref("rate","1");
   const parts=chunks(it.text); let k=0;
@@ -1241,19 +1279,70 @@ function speakItem(){
   };
   next();
 }
-function fillNarr(){
-  const cur=narrVoice();
-  $("#rdNarr").innerHTML=R.voices.length?R.voices.map(v=>`<option value="${esc(v.voiceURI)}" ${cur===v?"selected":""}>Narrator: ${esc(v.name)}</option>`).join(""):`<option>Default voice</option>`;
-  $("#rdAction").checked=rdPref("action","1")==="1"; $("#rdHead").checked=rdPref("head","1")==="1"; $("#rdRate").value=rdPref("rate","1");
+function voiceOpts(sel, filterG){
+  const list=filterG?R.voices.filter(v=>vGender(v)===filterG||vGender(v)==="?"):R.voices;
+  return list.map(v=>`<option value="${esc(v.voiceURI)}" ${sel===v?"selected":""}>${esc(v.name)}${vGender(v)==="f"?" (woman)":vGender(v)==="m"?" (man)":""}</option>`).join("");
 }
-function setPlayBtn(){ $("#rdPlay").textContent=R.playing?"❚❚ Pause":"▶ Play"; }
-function playRead(){ if(!TTS) return; R.playing=true; R.tok++; TTS.cancel(); setPlayBtn(); setTimeout(speakItem,60); }
+function buildBar(){
+  $("#reader").innerHTML=`
+    <div class="rd-row">
+      <button class="btn" id="rdPrevSc" title="Previous scene (Shift + Left arrow)" aria-label="Previous scene">⏮</button>
+      <button class="btn" id="rdPrev" title="Previous line (Left arrow)" aria-label="Previous line">◀</button>
+      <button class="btn primary rd-play" id="rdPlay" title="Play or pause (Space)">▶ Play</button>
+      <button class="btn" id="rdNext" title="Next line (Right arrow)" aria-label="Next line">▶</button>
+      <button class="btn" id="rdNextSc" title="Next scene (Shift + Right arrow)" aria-label="Next scene">⏭</button>
+      <div class="rd-now" id="rdNow" aria-live="polite"></div>
+      <button class="btn" id="rdCastBtn" title="Choose a voice for every character">🎭 Cast voices</button>
+      <button class="x" id="rdClose" title="Close (Esc)" aria-label="Close the table read">✕</button>
+    </div>
+    <div class="rd-row rd-seekrow">
+      <input type="range" id="rdSeek" min="0" max="0" step="1" value="0" aria-label="Jump to a line">
+      <span class="rd-pos" id="rdPos"></span>
+    </div>
+    <div class="rd-row rd-opts">
+      <select class="field" id="rdScene" aria-label="Jump to scene"></select>
+      <label class="rd-opt">Speed <input type="range" id="rdRate" min="0.6" max="1.6" step="0.1" value="1"><b id="rdRateV">1.0×</b></label>
+      <label class="rd-opt"><input type="checkbox" id="rdHead"> Headings</label>
+      <label class="rd-opt"><input type="checkbox" id="rdAction"> Action</label>
+      <span class="rd-keys">Space play/pause · ← → lines · Shift ← → scenes</span>
+    </div>`;
+  $("#rdPlay").onclick=()=>R.playing?pauseRead():playRead();
+  $("#rdPrev").onclick=()=>stepRead(-1);
+  $("#rdNext").onclick=()=>stepRead(1);
+  $("#rdPrevSc").onclick=()=>stepScene(-1);
+  $("#rdNextSc").onclick=()=>stepScene(1);
+  $("#rdClose").onclick=()=>stopRead();
+  $("#rdCastBtn").onclick=()=>openCast();
+  $("#rdSeek").oninput=e=>{ R.i=+e.target.value; const it=R.queue[R.i]; if(it) $("#rdPos").textContent=`Line ${R.i+1} of ${R.queue.length} · Sc. ${sceneNo(it.sc)}`; };
+  $("#rdSeek").onchange=()=>{ if(R.playing) playRead(); else markReading(R.queue[R.i]); };
+  $("#rdScene").onchange=e=>{ const j=R.queue.findIndex(q=>q.sc===e.target.value); if(j>=0){ R.i=j; if(R.playing) playRead(); else markReading(R.queue[R.i]); } };
+  $("#rdRate").oninput=e=>{ rdSet("rate",e.target.value); $("#rdRateV").textContent=(+e.target.value).toFixed(1)+"×"; };
+  $("#rdRate").onchange=()=>{ if(R.playing) playRead(); else updateBar(); };
+  $("#rdAction").onchange=e=>{ rdSet("action",e.target.checked?"1":"0"); rebuildKeep(); };
+  $("#rdHead").onchange=e=>{ rdSet("head",e.target.checked?"1":"0"); rebuildKeep(); };
+}
+function fillBar(){
+  if(!$("#rdPlay")||!$("#rdSeek")) buildBar();
+  const scIds=new Set(R.queue.map(q=>q.sc));
+  $("#rdScene").innerHTML=S.scenes.filter(sc=>scIds.has(sc.id)).map(sc=>`<option value="${sc.id}">Sc. ${sceneNo(sc.id)} · ${esc((heading(sc)||"Untitled scene").slice(0,48))}</option>`).join("");
+  $("#rdAction").checked=rdPref("action","1")==="1"; $("#rdHead").checked=rdPref("head","1")==="1";
+  $("#rdRate").value=rdPref("rate","1"); $("#rdRateV").textContent=(+rdPref("rate","1")).toFixed(1)+"×";
+  setPlayBtn(); updateBar();
+}
+function setPlayBtn(){ const b=$("#rdPlay"); if(b) b.textContent=R.playing?"❚❚ Pause":"▶ Play"; }
+function playRead(){ if(!TTS) return; if(R.i>=R.queue.length) R.i=0; R.playing=true; R.tok++; TTS.cancel(); setPlayBtn(); setTimeout(speakItem,60); }
 function pauseRead(){ R.playing=false; R.tok++; if(TTS) TTS.cancel(); setPlayBtn(); }
-function stopRead(){ R.on=false; R.playing=false; R.tok++; if(TTS) TTS.cancel(); setPlayBtn(); $("#reader").hidden=true; $(".backlot")&&$(".backlot").classList.remove("reading-on"); markReading(null); }
+function stopRead(){ R.on=false; R.playing=false; R.tok++; if(TTS) TTS.cancel(); setPlayBtn(); $("#reader").hidden=true; markReading(null); closeCast(); }
 function stepRead(d){ R.i=Math.max(0,Math.min(R.queue.length-1,R.i+d)); if(R.playing) playRead(); else markReading(R.queue[R.i]); }
+function stepScene(d){
+  const cur=R.queue[R.i]; if(!cur) return; const n=sceneNo(cur.sc); let j;
+  if(d<0){ const startCur=R.queue.findIndex(q=>q.sc===cur.sc); if(R.i>startCur+1) j=startCur; else { const prev=[...R.queue].reverse().find(q=>sceneNo(q.sc)<n); j=prev?R.queue.findIndex(q=>q.sc===prev.sc):0; } }
+  else { j=R.queue.findIndex(q=>sceneNo(q.sc)>n); if(j<0) return; }
+  R.i=j; if(R.playing) playRead(); else markReading(R.queue[R.i]);
+}
 function rebuildKeep(){ const cur=R.queue[R.i]; R.queue=buildQueue(); if(!R.queue.length){ stopRead(); return; }
   let j=0; if(cur){ const sk=sceneNo(cur.sc); j=R.queue.findIndex(q=>sceneNo(q.sc)>sk||(q.sc===cur.sc&&q.i>=cur.i)); if(j<0) j=R.queue.length-1; }
-  R.i=j; if(R.playing) playRead(); else markReading(R.queue[R.i]); }
+  R.i=j; fillBar(); if(R.playing) playRead(); else markReading(R.queue[R.i]); }
 function startRead(fromScene){
   if(!TTS){ toast("This browser can't read aloud. Try Chrome, Edge or Safari."); return; }
   if(S.view!=="script") setView("script");
@@ -1261,42 +1350,82 @@ function startRead(fromScene){
   if(!R.voices.length) loadVoices();
   const sid=fromScene||S.focus.scene; const j=sid?R.queue.findIndex(q=>q.sc===sid):-1; R.i=j<0?0:j;
   if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
-  R.on=true; $("#reader").hidden=false; fillNarr(); playRead();
+  R.on=true; $("#reader").hidden=false; fillBar(); playRead();
 }
 function sampleLine(name){
   for(const sc of S.scenes){ let who=null; for(const b of sc.blocks){ if(b.t==="character") who=cleanChar(b.x||""); else if(b.t==="dialogue"&&who===name&&(b.x||"").trim()) return b.x.trim().slice(0,200); else if(b.t!=="paren") who=null; } }
   return `Hi, I'm ${name.toLowerCase().replace(/\b\w/g,m=>m.toUpperCase())}.`;
 }
-function hearChar(name){
+function sayOnce(text, vs){
   if(!TTS){ toast("This browser can't read aloud. Try Chrome, Edge or Safari."); return; }
-  pauseRead(); const vs=charVoice(name); const u=new SpeechSynthesisUtterance(sampleLine(name));
-  if(vs.voice){ u.voice=vs.voice; u.lang=vs.voice.lang; } u.pitch=vs.pitch; u.rate=vs.rate*(+rdPref("rate","1")); R.utt=u; TTS.cancel(); TTS.speak(u);
+  pauseRead(); const u=new SpeechSynthesisUtterance(text);
+  if(vs.voice){ u.voice=vs.voice; u.lang=vs.voice.lang; } u.pitch=vs.pitch||1; u.rate=(vs.rate||1)*(+rdPref("rate","1")); R.utt=u; TTS.cancel(); TTS.speak(u);
 }
+function hearChar(name){ sayOnce(sampleLine(name), charVoice(name)); }
+/* cast panel: a voice for the narrator and every character, in one place */
+function speakingChars(){ const nums=castNumbers(); return Object.keys(nums).sort((a,b)=>nums[a]-nums[b]); }
+function lineCount(n){ let c=0; S.scenes.forEach(sc=>{ let w=null; sc.blocks.forEach(b=>{ if(b.t==="character") w=cleanChar(b.x||""); else if(b.t==="dialogue"&&w===n) c++; else if(b.t!=="paren") w=null; }); }); return c; }
+function renderCast(){
+  const dis=S.canWrite?"":"disabled"; const names=speakingChars(); const narr=narrVoice();
+  $("#castBody").innerHTML=!TTS?`<p class="hint">This browser can't read aloud. Try Chrome, Edge or Safari.</p>`:`
+    <p class="hint" style="margin:0 0 12px">Pick a voice type and Backlot finds a matching voice, or choose an exact voice. Every change plays a line so you can hear it. Choices are saved for your whole team.${R.voices.length<6?` This device has only ${R.voices.length} English voice${R.voices.length===1?"":"s"}, so some characters share a voice at a different pitch. Macs, iPhones and Chrome usually have more.`:""}</p>
+    <div class="tw"><table class="t cast"><thead><tr><th>Part</th><th>Voice type</th><th>Voice</th><th>Pitch</th><th></th></tr></thead><tbody>
+    <tr><td><b>Narrator</b><small>Headings and action</small></td><td class="muted">—</td>
+      <td><select class="field" data-narr ${dis}>${voiceOpts(narr)}</select></td><td class="muted">—</td>
+      <td><button class="btn" data-hear-narr type="button" aria-label="Hear the narrator">▶</button></td></tr>
+    ${names.map(n=>{ const k=ckey(n), p=S.chars[k]||{}, vs=charVoice(n), pick=savedVoice(p); const g=/woman|girl/.test(vs.type)?"f":/man|boy/.test(vs.type)?"m":""; const lc=lineCount(n); const auto=VTYPES.find(t=>t[0]===vs.type);
+      return `<tr data-ck="${esc(k)}" data-cn="${esc(n)}"><td><b>${esc(n)}</b><small>${lc} line${lc===1?"":"s"}</small></td>
+      <td><select class="field" data-ct="tts_type" ${dis}>${VTYPES.map(([v,l])=>`<option value="${v}" ${(p.tts_type||"")===v?"selected":""}>${l}${!v&&vs.type&&!p.tts_type&&auto?` (${auto[1].toLowerCase()})`:""}</option>`).join("")}</select></td>
+      <td><select class="field" data-ct="tts_voice" ${dis}><option value="">Automatic: ${esc(vs.voice?vs.voice.name:"default")}</option>${voiceOpts(pick, g)}</select></td>
+      <td><input type="range" data-ct="tts_pitch" min="0.5" max="1.6" step="0.05" value="${esc(p.tts_pitch||vs.pitch.toFixed(2))}" ${dis} aria-label="Pitch for ${esc(n)}"></td>
+      <td><button class="btn" data-hear="${esc(n)}" type="button" aria-label="Hear ${esc(n)}">▶</button></td></tr>`; }).join("")||`<tr><td colspan="5" class="muted">No speaking characters yet.</td></tr>`}
+    </tbody></table></div>`;
+}
+function openCast(){ $("#castOv").hidden=false; renderCast(); }
+function closeCast(){ const o=$("#castOv"); if(o) o.hidden=true; }
+(function initCast(){
+  const ov=document.createElement("div"); ov.className="ov"; ov.id="castOv"; ov.hidden=true;
+  ov.innerHTML=`<div class="modal cast-modal" role="dialog" aria-modal="true" aria-labelledby="castT"><div class="mhead"><h2 id="castT">Cast voices</h2><button class="x" id="castX" aria-label="Close">✕</button></div><div id="castBody"></div><div class="mfoot" style="justify-content:flex-end"><button class="btn primary" id="castDone">Done</button></div></div>`;
+  $("#reader").parentNode.appendChild(ov);
+  ov.addEventListener("click",e=>{ if(e.target===ov||e.target.id==="castX"||e.target.id==="castDone"){ closeCast(); return; }
+    const h=e.target.closest("[data-hear]"); if(h){ hearChar(h.dataset.hear); return; }
+    if(e.target.closest("[data-hear-narr]")) sayOnce(`${S.meta.title||"Untitled"}. Interior. Day.`, {voice:narrVoice()}); });
+  ov.addEventListener("change",e=>{
+    const el=e.target;
+    if(el.hasAttribute("data-narr")){ rdSet("narr",el.value); S.meta.tts_narr=el.value; if(S.canWrite) write("project/meta",r=>r.set({...S.meta})); renderCast(); sayOnce(`${S.meta.title||"Untitled"}. Interior. Day.`, {voice:narrVoice()}); return; }
+    const row=el.closest("tr[data-ck]"); if(!row||!el.dataset.ct) return;
+    const c={name:row.dataset.cn,key:row.dataset.ck}; const f={[el.dataset.ct]:el.value};
+    if(el.dataset.ct==="tts_type") f.tts_voice="";
+    patchChar(c,f); renderCast(); hearChar(c.name);
+  });
+})();
+if(TTS){ loadVoices(); if(TTS.addEventListener) TTS.addEventListener("voiceschanged",loadVoices); else TTS.onvoiceschanged=loadVoices; }
+$("#readBtn").onclick=()=>startRead();
+$("#scenes").addEventListener("dblclick",e=>{ if(!R.on) return; const el=e.target.closest(".blk"); const sec=e.target.closest("section.scene"); if(!el||!sec) return;
+  const j=R.queue.findIndex(q=>q.sc===sec.dataset.id&&q.i>=+el.dataset.i); if(j>=0){ R.i=j; playRead(); } });
+document.addEventListener("keydown",e=>{
+  if(dead||!R.on) return;
+  if(e.key==="Escape"){ if(!$("#castOv").hidden) closeCast(); else stopRead(); return; }
+  const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if(!$("#castOv").hidden) return;
+  if(e.key===" "){ e.preventDefault(); R.playing?pauseRead():playRead(); }
+  else if(e.key==="ArrowRight"){ e.preventDefault(); e.shiftKey?stepScene(1):stepRead(1); }
+  else if(e.key==="ArrowLeft"){ e.preventDefault(); e.shiftKey?stepScene(-1):stepRead(-1); }
+});
+
 function voiceFields(c,dis){
   const p=c.p||{};
   if(!TTS) return `<h3>Table-read voice</h3><p class="hint" style="margin:0">This browser can't read aloud. Open Backlot in Chrome, Edge or Safari to hear the script.</p>`;
   const saved=p.tts_voice, have=savedVoice(p);
   return `<h3>Table-read voice <button class="btn" id="chHear" type="button">▶ Hear a line</button></h3>
     <div class="chf row3 rdv">
+      <label>Voice type<select class="field" data-cf="tts_type" ${dis}>${VTYPES.map(([v,l])=>`<option value="${v}" ${(p.tts_type||"")===v?"selected":""}>${l}</option>`).join("")}</select></label>
       <label>Voice<select class="field" data-cf="tts_voice" ${dis}><option value="">Automatic</option>${saved&&!have?`<option value="${esc(saved)}" selected>Saved voice isn't on this device (automatic)</option>`:""}${R.voices.map(v=>`<option value="${esc(v.voiceURI)}" ${have===v?"selected":""}>${esc(v.name)} · ${esc(v.lang)}</option>`).join("")}</select></label>
       <label>Pitch <small>${esc(p.tts_pitch||"auto")}</small><input type="range" data-cf="tts_pitch" min="0.5" max="1.5" step="0.05" value="${esc(p.tts_pitch||"1")}" ${dis}></label>
       <label>Speed <small>${esc(p.tts_rate||"1")}×</small><input type="range" data-cf="tts_rate" min="0.7" max="1.4" step="0.05" value="${esc(p.tts_rate||"1")}" ${dis}></label>
     </div>
-    <p class="hint" style="margin:6px 0 0">Used when you press Table read in the Script tab. Voices come from each person's device, so they can sound a little different on another computer or phone.</p>`;
+    <p class="hint" style="margin:6px 0 0">Used when you press Table read in the Script tab. You can also cast everyone at once with 🎭 Cast voices in the player. Voices come from each person's device, so they can sound a little different on another computer or phone.</p>`;
 }
-$("#readBtn").onclick=()=>startRead();
-$("#rdPlay").onclick=()=>R.playing?pauseRead():playRead();
-$("#rdPrev").onclick=()=>stepRead(-1);
-$("#rdNext").onclick=()=>stepRead(1);
-$("#rdClose").onclick=()=>stopRead();
-$("#rdRate").oninput=e=>{ rdSet("rate",e.target.value); };
-$("#rdRate").onchange=()=>{ if(R.playing) playRead(); };
-$("#rdNarr").onchange=e=>{ rdSet("narr",e.target.value); if(R.playing) playRead(); };
-$("#rdAction").onchange=e=>{ rdSet("action",e.target.checked?"1":"0"); rebuildKeep(); };
-$("#rdHead").onchange=e=>{ rdSet("head",e.target.checked?"1":"0"); rebuildKeep(); };
-$("#scenes").addEventListener("dblclick",e=>{ if(!R.on) return; const el=e.target.closest(".blk"); const sec=e.target.closest("section.scene"); if(!el||!sec) return;
-  const j=R.queue.findIndex(q=>q.sc===sec.dataset.id&&q.i>=+el.dataset.i); if(j>=0){ R.i=j; playRead(); } });
-document.addEventListener("keydown",e=>{ if(!dead&&R.on&&e.key==="Escape") stopRead(); });
 
 /* ---------- boot ---------- */
 function renderAll(){ renderScript(); renderTypes(); renderRev(); }
