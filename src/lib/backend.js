@@ -481,7 +481,29 @@ const supa = {
         return data;
       },
     };
-    return { db: store.db, user, room, versions, uploadImage: (f) => supa.uploadImage(f, "backlot/" + ws), destroy: () => { c.removeChannel(docs); c.removeChannel(pres); } };
+    return { db: store.db, user, room, versions, tts: hdVoices, uploadImage: (f) => supa.uploadImage(f, "backlot/" + ws), destroy: () => { c.removeChannel(docs); c.removeChannel(pres); } };
+  },
+};
+
+/* HD voices for Backlot table reads (ElevenLabs, through the "tts" Supabase function so the key stays secret) */
+const hdVoices = {
+  async call(payload) {
+    const c = await sb();
+    const { data } = await c.auth.getSession();
+    const token = data && data.session ? data.session.access_token : KEY;
+    return fetch(`${URL_}/functions/v1/tts`, { method: "POST", headers: { "Content-Type": "application/json", apikey: KEY, Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+  },
+  async voices() {
+    const r = await hdVoices.call({ action: "voices" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error || "HD voices aren't available right now."); e.status = r.status; throw e; }
+    return j.voices || [];
+  },
+  async quota() { try { const r = await hdVoices.call({ action: "quota" }); return r.ok ? r.json() : null; } catch { return null; } },
+  async speak(text, voice, model) {
+    const r = await hdVoices.call({ action: "speak", text, voice, model });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); const e = new Error(j.error || "The HD voice couldn't read that line."); e.status = r.status; throw e; }
+    return r.blob();
   },
 };
 
@@ -703,6 +725,7 @@ const demo = {
         },
       },
       uploadImage: (f) => demo.uploadImage(f),
+      tts: (typeof window !== "undefined" && window.__fakeTTS) || undefined,
       destroy: () => {},
     };
   },
