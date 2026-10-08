@@ -41,6 +41,7 @@ function MoreMenu({ user, isOwner, onReplay }) {
     { label: "Journal", to: "/journal" },
     { label: "Bible Study", to: "/bible-study" },
     { label: "About", to: "/about" },
+    { label: "PureVibes ↗", href: "https://www.purevibes.me", hint: "Our social media platform" },
     "sep",
     ...(user
       ? [
@@ -76,7 +77,8 @@ function MoreMenu({ user, isOwner, onReplay }) {
 
   const choose = (it) => {
     setOpen(false);
-    if (it.to) navigate(it.to);
+    if (it.href) window.open(it.href, "_blank", "noopener");
+    else if (it.to) navigate(it.to);
     else if (it.run) it.run();
   };
 
@@ -114,6 +116,7 @@ export function Footer({ onReplay }) {
         </div>
         <div className="foot-links">
           <Link to="/about">About</Link>
+          <a href="https://www.purevibes.me" target="_blank" rel="noopener">PureVibes</a>
           <button className="linkish" onClick={onReplay}>Replay the opening reel</button>
           {user ? <Link to="/studio">Studio</Link> : <Link to="/login">Team sign in</Link>}
         </div>
