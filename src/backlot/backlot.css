@@ -269,3 +269,8 @@
 .backlot .rdv small{color:var(--muted);font-weight:400}
 .backlot h3 #chHear{margin-left:10px;vertical-align:middle;font-size:12px}
 @media (max-width:640px){.backlot .reader .rd-keys{display:none}.backlot .reader #rdPrevSc,.backlot .reader #rdNextSc{display:none}.backlot .reader .rd-play{min-width:80px}.backlot .reader #rdCastBtn{padding:6px 8px}}
+.backlot .cast-engine{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end;margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+.backlot .cast-engine label{display:grid;gap:4px;font-size:12px;color:var(--muted);min-width:220px}
+.backlot .cast-engine .hint{flex-basis:100%;margin:0}
+.backlot .cast-engine .warn{color:var(--warn)}
+.backlot .hdtag{font-style:normal;font-size:10px;letter-spacing:.08em;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}

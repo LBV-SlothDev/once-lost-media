@@ -1175,6 +1175,48 @@ $("#clearScript").onclick=async()=>{
 /* ---------- table read (uses the free voices built into the device) ---------- */
 const TTS = (typeof window!=="undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance!=="undefined") ? window.speechSynthesis : null;
 const R = { on:false, playing:false, queue:[], i:0, voices:[], tok:0, utt:null };
+/* HD voices (ElevenLabs through Supabase). Falls back to device voices if anything goes wrong. */
+const HD = { voices:null, err:null, loading:null, quota:null, cache:new Map(), audio:null, failed:false };
+const hdOn = () => !!(adapters.tts && S.meta && S.meta.tts_engine==="hd" && !HD.failed && HD.voices && HD.voices.length);
+const hdModel = () => (S.meta && S.meta.tts_model==="eleven_flash_v2_5") ? "eleven_flash_v2_5" : "eleven_multilingual_v2";
+function hdLoad(force){
+  if(!adapters.tts) return Promise.resolve([]);
+  if(HD.loading&&!force) return HD.loading;
+  HD.loading=adapters.tts.voices().then(list=>{ HD.err=null; HD.voices=list.map(v=>{ const L=v.labels||{}; const g=/female|woman/i.test(L.gender||"")?"f":/male|man/i.test(L.gender||"")?"m":"?";
+      return { id:v.id, name:v.name, g, age:String(L.age||"").replace(/_/g," "), accent:L.accent||"", desc:L.description||L.descriptive||L.use_case||"" }; }).sort((a,b)=>a.name.localeCompare(b.name));
+    adapters.tts.quota().then(q=>{ HD.quota=q; const co=$("#castOv"); if(co&&!co.hidden) renderCast(); });
+    if(R.on) fillBar(); const co=$("#castOv"); if(co&&!co.hidden) renderCast(); return HD.voices; })
+    .catch(e=>{ HD.err=e; HD.voices=[]; const co=$("#castOv"); if(co&&!co.hidden) renderCast(); return []; });
+  return HD.loading;
+}
+const hdLabel = v => [v.g==="f"?"woman":v.g==="m"?"man":"", v.age, v.accent].filter(Boolean).join(", ");
+function hdPick(name, type, avoid){
+  const vs=(HD.voices||[]).filter(v=>v.id!==avoid); if(!vs.length) return (HD.voices||[])[0]||null;
+  const want=/woman|girl/.test(type)?"f":/man|boy/.test(type)?"m":""; const young=/boy|girl/.test(type), old=/old/.test(type);
+  let list=want?vs.filter(v=>v.g===want):vs; if(!list.length) list=vs;
+  let byAge=list.filter(v=>young?/young/i.test(v.age):old?/old/i.test(v.age):/middle/i.test(v.age));
+  if(!byAge.length&&!young&&!old) byAge=list.filter(v=>!/old|young/i.test(v.age));
+  if(!byAge.length&&!young&&!old) byAge=list.filter(v=>!/old/i.test(v.age));
+  if(byAge.length) list=byAge;
+  return list[hashStr(name)%list.length];
+}
+function hdNarr(){ const id=S.meta&&S.meta.tts_hd_narr; return (HD.voices||[]).find(v=>v.id===id) || (HD.voices||[]).find(v=>/narrat|audiobook|storytell/i.test(v.desc)) || (HD.voices||[]).find(v=>/calm|deep|warm/i.test(v.desc)) || (HD.voices||[])[0] || null; }
+function hdChar(name){ const p=S.chars[ckey(name)]||{}; const type=guessType(p,name); const saved=(HD.voices||[]).find(v=>v.id===p.tts_hd_voice); const n=hdNarr();
+  return { voice:saved||hdPick(name,type,n&&n.id), rate:p.tts_rate?+p.tts_rate:1, type, saved:!!saved }; }
+function hdAudio(text, voiceId){
+  const k=hdModel()+"|"+voiceId+"|"+text; if(HD.cache.has(k)) return HD.cache.get(k);
+  const pr=adapters.tts.speak(text, voiceId, hdModel()).then(b=>URL.createObjectURL(b));
+  pr.catch(()=>HD.cache.delete(k)); HD.cache.set(k,pr); if(HD.cache.size>400){ const first=HD.cache.keys().next().value; HD.cache.delete(first); }
+  return pr;
+}
+function hdFor(it){ const v=it.who?hdChar(it.who):{voice:hdNarr(),rate:1}; return v; }
+function hdPrefetch(j){ const it=R.queue[j]; if(!it||!hdOn()) return; const v=hdFor(it); if(v.voice) hdAudio(it.text.slice(0,1500), v.voice.id).catch(()=>{}); }
+function hdStop(){ if(HD.audio){ try{ HD.audio.pause(); }catch(e){} HD.audio.onended=null; HD.audio.onerror=null; } }
+function hdFail(e){
+  HD.failed=true; hdStop();
+  const msg=e&&e.status===401?"Sign in again to use HD voices.":e&&e.status===403?"HD voices are only for the Once Lost Media team.":(e&&e.message)||"HD voices aren't available.";
+  toast(msg+" Using device voices for now."); if(R.on) fillBar();
+}
 const FEM = /\b(female|woman|samantha|karen|moira|tessa|victoria|fiona|susan|allison|ava|zoe|serena|kate|kathy|vicki|veena|nicky|joana|martha|catherine|sara|amelie|anna|alice|ellen|ioana|zira|aria|jenny|libby|sonia|natasha|clara|emma|olivia|michelle|ana|hazel|heera|linda|eva|paulina|monica|luciana|shelley|sandy|flo|grandma)\b/i;
 const MAL = /\b(male|man|alex|daniel|fred|tom|oliver|arthur|aaron|rishi|david|mark|guy|ryan|james|george|thomas|lee|gordon|bruce|ralph|junior|albert|reed|rocko|eddy|grandpa|christopher|eric|roger|steffan|william|liam|brian|andrew|ravi)\b/i;
 const vGender = v => { const n=v.name||""; if(/female/i.test(n)) return "f"; if(/\bmale\b/i.test(n)) return "m"; if(FEM.test(n)&&!MAL.test(n)) return "f"; if(MAL.test(n)) return "m"; return "?"; };
@@ -1257,7 +1299,7 @@ function markReading(it){
 }
 function updateBar(){
   const it=R.queue[R.i]; if(!it||!$("#rdNow")) return;
-  $("#rdNow").innerHTML=`<b>${esc(it.who||"Narrator")}</b><span>${esc(it.text.length>90?it.text.slice(0,88)+"…":it.text)}</span>`;
+  $("#rdNow").innerHTML=`<b>${esc(it.who||"Narrator")}${hdOn()?' <i class="hdtag">HD</i>':""}</b><span>${esc(it.text.length>90?it.text.slice(0,88)+"…":it.text)}</span>`;
   const pr=$("#rdSeek"); pr.max=String(Math.max(0,R.queue.length-1)); if(document.activeElement!==pr) pr.value=String(R.i);
   $("#rdPos").textContent=`Line ${R.i+1} of ${R.queue.length} · about ${timeLeft()} left`;
   const sel=$("#rdScene"); if(sel&&document.activeElement!==sel) sel.value=it.sc;
@@ -1266,6 +1308,20 @@ function speakItem(){
   if(!R.playing) return;
   const it=R.queue[R.i]; if(!it){ R.i=Math.max(0,R.queue.length-1); pauseRead(); toast("That's the end of the script."); return; }
   markReading(it);
+  if(hdOn()){
+    const tok=++R.tok, v=hdFor(it), base=+rdPref("rate","1");
+    if(!v.voice){ hdFail(new Error("No HD voices found.")); return speakItem(); }
+    hdAudio(it.text.slice(0,1500), v.voice.id).then(url=>{
+      if(tok!==R.tok||!R.playing) return;
+      if(!HD.audio) HD.audio=new Audio();
+      const a=HD.audio; a.src=url; a.playbackRate=Math.max(0.5,Math.min(2,(v.rate||1)*base)); try{ a.preservesPitch=true; }catch(e){}
+      a.onended=()=>{ if(tok!==R.tok||!R.playing) return; R.i++; setTimeout(()=>{ if(tok===R.tok) speakItem(); },it.who?160:90); };
+      a.onerror=()=>{ if(tok===R.tok){ hdFail(new Error("That HD line couldn't play.")); speakItem(); } };
+      a.play().catch(err=>{ if(tok!==R.tok) return; if(err&&err.name==="NotAllowedError"){ pauseRead(); toast("Press Play to start the HD voices."); } else { hdFail(err); speakItem(); } });
+      hdPrefetch(R.i+1); hdPrefetch(R.i+2);
+    }).catch(err=>{ if(tok!==R.tok) return; hdFail(err); speakItem(); });
+    return;
+  }
   const tok=++R.tok, vs=it.who?charVoice(it.who):{voice:narrVoice(),pitch:1,rate:1}, base=+rdPref("rate","1");
   const parts=chunks(it.text); let k=0;
   const next=()=>{
@@ -1330,9 +1386,9 @@ function fillBar(){
   setPlayBtn(); updateBar();
 }
 function setPlayBtn(){ const b=$("#rdPlay"); if(b) b.textContent=R.playing?"❚❚ Pause":"▶ Play"; }
-function playRead(){ if(!TTS) return; if(R.i>=R.queue.length) R.i=0; R.playing=true; R.tok++; TTS.cancel(); setPlayBtn(); setTimeout(speakItem,60); }
-function pauseRead(){ R.playing=false; R.tok++; if(TTS) TTS.cancel(); setPlayBtn(); }
-function stopRead(){ R.on=false; R.playing=false; R.tok++; if(TTS) TTS.cancel(); setPlayBtn(); $("#reader").hidden=true; markReading(null); closeCast(); }
+function playRead(){ if(!TTS&&!hdOn()) return; if(R.i>=R.queue.length) R.i=0; R.playing=true; R.tok++; if(TTS) TTS.cancel(); hdStop(); setPlayBtn(); setTimeout(speakItem,60); }
+function pauseRead(){ R.playing=false; R.tok++; if(TTS) TTS.cancel(); hdStop(); setPlayBtn(); }
+function stopRead(){ R.on=false; R.playing=false; R.tok++; if(TTS) TTS.cancel(); hdStop(); setPlayBtn(); $("#reader").hidden=true; markReading(null); closeCast(); }
 function stepRead(d){ R.i=Math.max(0,Math.min(R.queue.length-1,R.i+d)); if(R.playing) playRead(); else markReading(R.queue[R.i]); }
 function stepScene(d){
   const cur=R.queue[R.i]; if(!cur) return; const n=sceneNo(cur.sc); let j;
@@ -1344,7 +1400,8 @@ function rebuildKeep(){ const cur=R.queue[R.i]; R.queue=buildQueue(); if(!R.queu
   let j=0; if(cur){ const sk=sceneNo(cur.sc); j=R.queue.findIndex(q=>sceneNo(q.sc)>sk||(q.sc===cur.sc&&q.i>=cur.i)); if(j<0) j=R.queue.length-1; }
   R.i=j; fillBar(); if(R.playing) playRead(); else markReading(R.queue[R.i]); }
 function startRead(fromScene){
-  if(!TTS){ toast("This browser can't read aloud. Try Chrome, Edge or Safari."); return; }
+  if(!TTS&&!hdOn()){ toast("This browser can't read aloud. Try Chrome, Edge or Safari."); return; }
+  if(adapters.tts&&S.meta.tts_engine==="hd"&&!HD.voices) hdLoad();
   if(S.view!=="script") setView("script");
   R.queue=buildQueue(); if(!R.queue.length){ toast("There's nothing to read yet. Write a scene first."); return; }
   if(!R.voices.length) loadVoices();
@@ -1361,13 +1418,35 @@ function sayOnce(text, vs){
   pauseRead(); const u=new SpeechSynthesisUtterance(text);
   if(vs.voice){ u.voice=vs.voice; u.lang=vs.voice.lang; } u.pitch=vs.pitch||1; u.rate=(vs.rate||1)*(+rdPref("rate","1")); R.utt=u; TTS.cancel(); TTS.speak(u);
 }
-function hearChar(name){ sayOnce(sampleLine(name), charVoice(name)); }
+function hdSay(text, voice){ pauseRead(); if(!voice) return; hdAudio(text.slice(0,1500), voice.id).then(url=>{ if(!HD.audio) HD.audio=new Audio(); HD.audio.onended=null; HD.audio.src=url; HD.audio.playbackRate=+rdPref("rate","1")||1; HD.audio.play().catch(()=>{}); }).catch(e=>toast((e&&e.message)||"That HD voice couldn't play.")); }
+function hearChar(name){ if(hdOn()) hdSay(sampleLine(name), hdChar(name).voice); else sayOnce(sampleLine(name), charVoice(name)); }
+function hearNarr(){ const t=`${S.meta.title||"Untitled"}. Interior. Day.`; if(hdOn()) hdSay(t, hdNarr()); else sayOnce(t, {voice:narrVoice()}); }
 /* cast panel: a voice for the narrator and every character, in one place */
 function speakingChars(){ const nums=castNumbers(); return Object.keys(nums).sort((a,b)=>nums[a]-nums[b]); }
 function lineCount(n){ let c=0; S.scenes.forEach(sc=>{ let w=null; sc.blocks.forEach(b=>{ if(b.t==="character") w=cleanChar(b.x||""); else if(b.t==="dialogue"&&w===n) c++; else if(b.t!=="paren") w=null; }); }); return c; }
+function engineBox(dis){
+  if(!adapters.tts) return "";
+  const hdSel=S.meta.tts_engine==="hd"; const q=HD.quota;
+  const status=!hdSel?"Free voices built into each device.":HD.err?`<span class="warn">${esc(HD.err.message)}</span>`:!HD.voices?"Loading HD voices…":HD.failed?`<span class="warn">HD voices hit a problem, so device voices are playing. Switch to HD again to retry.</span>`:`${HD.voices.length} HD voices${q&&q.limit?` · ${Number(q.used||0).toLocaleString()} of ${Number(q.limit).toLocaleString()} characters used this month`:""}. Lines you've heard before replay free.`;
+  return `<div class="cast-engine"><label>Voice quality<select class="field" id="castEngine" ${dis}><option value="device" ${hdSel?"":"selected"}>Device voices (free)</option><option value="hd" ${hdSel?"selected":""}>HD voices (ElevenLabs)</option></select></label>
+    ${hdSel?`<label>HD model<select class="field" id="castModel" ${dis}><option value="eleven_multilingual_v2" ${hdModel()==="eleven_multilingual_v2"?"selected":""}>Best quality</option><option value="eleven_flash_v2_5" ${hdModel()==="eleven_flash_v2_5"?"selected":""}>Faster, uses half the credits</option></select></label>`:""}
+    <p class="hint">${status}</p></div>`;
+}
+function hdOpts(sel, g){ const list=(HD.voices||[]).slice().sort((a,b)=>(g&&(a.g===g)!==(b.g===g))?(a.g===g?-1:1):a.name.localeCompare(b.name)); return list.map(v=>`<option value="${esc(v.id)}" ${sel&&sel.id===v.id?"selected":""}>${esc(v.name)}${hdLabel(v)?` (${esc(hdLabel(v))})`:""}</option>`).join(""); }
 function renderCast(){
-  const dis=S.canWrite?"":"disabled"; const names=speakingChars(); const narr=narrVoice();
-  $("#castBody").innerHTML=!TTS?`<p class="hint">This browser can't read aloud. Try Chrome, Edge or Safari.</p>`:`
+  const dis=S.canWrite?"":"disabled"; const names=speakingChars(); const narr=narrVoice(); const hd=hdOn();
+  if(hd){ $("#castBody").innerHTML=engineBox(dis)+`
+    <div class="tw"><table class="t cast"><thead><tr><th>Part</th><th>Voice type</th><th>HD voice</th><th></th></tr></thead><tbody>
+    <tr><td><b>Narrator</b><small>Headings and action</small></td><td class="muted">—</td>
+      <td><select class="field" data-narr ${dis}>${hdOpts(hdNarr())}</select></td>
+      <td><button class="btn" data-hear-narr type="button" aria-label="Hear the narrator">▶</button></td></tr>
+    ${names.map(n=>{ const k=ckey(n), p=S.chars[k]||{}, h=hdChar(n); const g=/woman|girl/.test(h.type)?"f":/man|boy/.test(h.type)?"m":""; const lc=lineCount(n); const auto=VTYPES.find(t=>t[0]===h.type);
+      return `<tr data-ck="${esc(k)}" data-cn="${esc(n)}"><td><b>${esc(n)}</b><small>${lc} line${lc===1?"":"s"}</small></td>
+      <td><select class="field" data-ct="tts_type" ${dis}>${VTYPES.map(([v,l])=>`<option value="${v}" ${(p.tts_type||"")===v?"selected":""}>${l}${!v&&h.type&&!p.tts_type&&auto?` (${auto[1].toLowerCase()})`:""}</option>`).join("")}</select></td>
+      <td><select class="field" data-ct="tts_hd_voice" ${dis}><option value="">Automatic: ${esc(h.voice?h.voice.name:"—")}</option>${hdOpts(h.saved?h.voice:null,g)}</select></td>
+      <td><button class="btn" data-hear="${esc(n)}" type="button" aria-label="Hear ${esc(n)}">▶</button></td></tr>`; }).join("")||`<tr><td colspan="4" class="muted">No speaking characters yet.</td></tr>`}
+    </tbody></table></div>`; return; }
+  $("#castBody").innerHTML=!TTS?engineBox(dis)+`<p class="hint">This browser can't read aloud with device voices. Try Chrome, Edge or Safari${adapters.tts?", or switch to HD voices":""}.</p>`:engineBox(dis)+`
     <p class="hint" style="margin:0 0 12px">Pick a voice type and Backlot finds a matching voice, or choose an exact voice. Every change plays a line so you can hear it. Choices are saved for your whole team.${R.voices.length<6?` This device has only ${R.voices.length} English voice${R.voices.length===1?"":"s"}, so some characters share a voice at a different pitch. Macs, iPhones and Chrome usually have more.`:""}</p>
     <div class="tw"><table class="t cast"><thead><tr><th>Part</th><th>Voice type</th><th>Voice</th><th>Pitch</th><th></th></tr></thead><tbody>
     <tr><td><b>Narrator</b><small>Headings and action</small></td><td class="muted">—</td>
@@ -1381,7 +1460,7 @@ function renderCast(){
       <td><button class="btn" data-hear="${esc(n)}" type="button" aria-label="Hear ${esc(n)}">▶</button></td></tr>`; }).join("")||`<tr><td colspan="5" class="muted">No speaking characters yet.</td></tr>`}
     </tbody></table></div>`;
 }
-function openCast(){ $("#castOv").hidden=false; renderCast(); }
+function openCast(){ $("#castOv").hidden=false; if(adapters.tts&&S.meta.tts_engine==="hd"&&!HD.voices) hdLoad(); renderCast(); }
 function closeCast(){ const o=$("#castOv"); if(o) o.hidden=true; }
 (function initCast(){
   const ov=document.createElement("div"); ov.className="ov"; ov.id="castOv"; ov.hidden=true;
@@ -1389,16 +1468,18 @@ function closeCast(){ const o=$("#castOv"); if(o) o.hidden=true; }
   $("#reader").parentNode.appendChild(ov);
   ov.addEventListener("click",e=>{ if(e.target===ov||e.target.id==="castX"||e.target.id==="castDone"){ closeCast(); return; }
     const h=e.target.closest("[data-hear]"); if(h){ hearChar(h.dataset.hear); return; }
-    if(e.target.closest("[data-hear-narr]")) sayOnce(`${S.meta.title||"Untitled"}. Interior. Day.`, {voice:narrVoice()}); });
+    if(e.target.closest("[data-hear-narr]")) hearNarr(); });
   ov.addEventListener("change",e=>{
     const el=e.target;
-    if(el.hasAttribute("data-narr")){ rdSet("narr",el.value); S.meta.tts_narr=el.value; if(S.canWrite) write("project/meta",r=>r.set({...S.meta})); renderCast(); sayOnce(`${S.meta.title||"Untitled"}. Interior. Day.`, {voice:narrVoice()}); return; }
+    if(el.hasAttribute("data-narr")){ if(hdOn()) S.meta.tts_hd_narr=el.value; else { rdSet("narr",el.value); S.meta.tts_narr=el.value; } if(S.canWrite) write("project/meta",r=>r.set({...S.meta})); renderCast(); hearNarr(); return; }
+    if(el.id==="castEngine"||el.id==="castModel"){ if(el.id==="castEngine"){ S.meta.tts_engine=el.value; HD.failed=false; if(el.value==="hd") hdLoad(true); } else S.meta.tts_model=el.value; if(S.canWrite) write("project/meta",r=>r.set({...S.meta})); renderCast(); if(R.on) fillBar(); return; }
     const row=el.closest("tr[data-ck]"); if(!row||!el.dataset.ct) return;
     const c={name:row.dataset.cn,key:row.dataset.ck}; const f={[el.dataset.ct]:el.value};
-    if(el.dataset.ct==="tts_type") f.tts_voice="";
+    if(el.dataset.ct==="tts_type"){ f.tts_voice=""; f.tts_hd_voice=""; }
     patchChar(c,f); renderCast(); hearChar(c.name);
   });
 })();
+setTimeout(()=>{ if(!dead&&adapters.tts&&S.meta&&S.meta.tts_engine==="hd") hdLoad(); },2500);
 if(TTS){ loadVoices(); if(TTS.addEventListener) TTS.addEventListener("voiceschanged",loadVoices); else TTS.onvoiceschanged=loadVoices; }
 $("#readBtn").onclick=()=>startRead();
 $("#scenes").addEventListener("dblclick",e=>{ if(!R.on) return; const el=e.target.closest(".blk"); const sec=e.target.closest("section.scene"); if(!el||!sec) return;
@@ -1456,5 +1537,5 @@ async function boot(){
   }
 }
 boot();
-return ()=>{ dead=true; try{ R.tok++; R.playing=false; if(TTS) TTS.cancel(); }catch(e){} [...S.dirty].forEach(id=>{ clearTimeout(S.timers[id]); flushScene(id); }); unsubs.forEach(u=>{ try{u&&u()}catch(e){} }); };
+return ()=>{ dead=true; try{ R.tok++; R.playing=false; if(TTS) TTS.cancel(); hdStop(); HD.cache.forEach(p=>p.then(u=>URL.revokeObjectURL(u)).catch(()=>{})); }catch(e){} [...S.dirty].forEach(id=>{ clearTimeout(S.timers[id]); flushScene(id); }); unsubs.forEach(u=>{ try{u&&u()}catch(e){} }); };
 }
