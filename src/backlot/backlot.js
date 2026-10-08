@@ -1174,49 +1174,197 @@ $("#clearScript").onclick=async()=>{
 
 /* ---------- table read (uses the free voices built into the device) ---------- */
 const TTS = (typeof window!=="undefined" && "speechSynthesis" in window && typeof SpeechSynthesisUtterance!=="undefined") ? window.speechSynthesis : null;
-const R = { on:false, playing:false, queue:[], i:0, voices:[], tok:0, utt:null };
-/* HD voices (ElevenLabs through Supabase). Falls back to device voices if anything goes wrong. */
-const HD = { voices:null, err:null, loading:null, quota:null, cache:new Map(), audio:null, failed:false };
-const hdOn = () => !!(adapters.tts && S.meta && S.meta.tts_engine==="hd" && !HD.failed && HD.voices && HD.voices.length);
-const hdModel = () => (S.meta && S.meta.tts_model==="eleven_flash_v2_5") ? "eleven_flash_v2_5" : "eleven_multilingual_v2";
+const R = { on:false, playing:false, queue:[], i:0, voices:[], tok:0, utt:null, wait:false };
+/* Natural voices (Kokoro: free, open-source, runs on this device) and HD voices (ElevenLabs through Supabase).
+   Both fall back to device voices if anything goes wrong. */
+const KOKO_OK = typeof Worker!=="undefined" && typeof Blob!=="undefined" && typeof URL!=="undefined" && !!URL.createObjectURL;
+const KOKO_VOICES = [
+  ["af_heart","Heart","f","American"],["af_bella","Bella","f","American"],["af_nicole","Nicole","f","American"],["af_aoede","Aoede","f","American"],
+  ["af_kore","Kore","f","American"],["af_sarah","Sarah","f","American"],["af_nova","Nova","f","American"],["af_sky","Sky","f","American"],
+  ["af_alloy","Alloy","f","American"],["af_jessica","Jessica","f","American"],["af_river","River","f","American"],
+  ["am_michael","Michael","m","American","narration"],["am_fenrir","Fenrir","m","American"],["am_puck","Puck","m","American"],["am_echo","Echo","m","American"],
+  ["am_eric","Eric","m","American"],["am_liam","Liam","m","American"],["am_onyx","Onyx","m","American"],["am_adam","Adam","m","American"],
+  ["bf_emma","Emma","f","British"],["bf_isabella","Isabella","f","British"],["bf_alice","Alice","f","British"],["bf_lily","Lily","f","British"],
+  ["bm_george","George","m","British"],["bm_fable","Fable","m","British"],["bm_lewis","Lewis","m","British"],["bm_daniel","Daniel","m","British"]
+];
+const KOKO_SRC = String.raw`
+import { KokoroTTS } from "https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js";
+const M="onnx-community/Kokoro-82M-v1.0-ONNX";
+let tts=null, loading=null, device="wasm", busy=false; const Q=[];
+function load(){
+  if(tts) return Promise.resolve(tts); if(loading) return loading;
+  loading=(async()=>{
+    let gpu=false; try{ gpu=!!(self.navigator.gpu && await self.navigator.gpu.requestAdapter()); }catch(_){}
+    const prog=p=>{ if(p&&p.status==="progress"&&p.total>1000000) self.postMessage({type:"progress",file:p.file,loaded:p.loaded,total:p.total}); };
+    const opts=d=>({dtype:d==="webgpu"?"fp32":"q8",device:d,progress_callback:prog});
+    if(gpu){ try{ tts=await KokoroTTS.from_pretrained(M,opts("webgpu")); device="webgpu"; }catch(_){ tts=null; } }
+    if(!tts){ tts=await KokoroTTS.from_pretrained(M,opts("wasm")); device="wasm"; }
+    self.postMessage({type:"ready",device}); return tts;
+  })();
+  loading.catch(()=>{ loading=null; });
+  return loading;
+}
+function split(t){
+  const s=t.match(/[^.!?…]+[.!?…]+["'”’)]*\s*|[^.!?…]+$/g)||[t]; const out=[]; let cur="";
+  for(const x of s){ if((cur+x).length>300&&cur){ out.push(cur.trim()); cur=""; } cur+=x; }
+  if(cur.trim()) out.push(cur.trim());
+  return out.flatMap(c=>c.length<=400?[c]:(c.match(/.{1,350}(\s|$)/g)||[c])).map(x=>x.trim()).filter(Boolean);
+}
+function wav(arrs,sr){
+  const gap=Math.round(sr*0.12); let n=0; arrs.forEach((a,i)=>{ n+=a.length+(i?gap:0); });
+  const buf=new ArrayBuffer(44+n*2), v=new DataView(buf); const w=(o,x)=>{ for(let i=0;i<x.length;i++) v.setUint8(o+i,x.charCodeAt(i)); };
+  w(0,"RIFF"); v.setUint32(4,36+n*2,true); w(8,"WAVE"); w(12,"fmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40,n*2,true);
+  let o=44; arrs.forEach((a,i)=>{ if(i) o+=gap*2; for(let k=0;k<a.length;k++){ const x=Math.max(-1,Math.min(1,a[k])); v.setInt16(o,x<0?x*0x8000:x*0x7fff,true); o+=2; } });
+  return buf;
+}
+async function pump(){
+  if(busy) return; busy=true;
+  while(Q.length){ const j=Q.shift();
+    try{ const m=await load(); const outs=[]; let sr=24000;
+      for(const part of split(j.text)){ const a=await m.generate(part,{voice:j.voice}); outs.push(a.audio); sr=a.sampling_rate||sr; }
+      const b=wav(outs,sr); self.postMessage({type:"done",id:j.id,wav:b},[b]);
+    }catch(e){ self.postMessage({type:"done",id:j.id,err:String((e&&e.message)||e)}); } }
+  busy=false;
+}
+self.onmessage=e=>{ const d=e.data||{};
+  if(d.type==="warm"){ load().catch(err=>self.postMessage({type:"fail",err:String((err&&err.message)||err)})); return; }
+  if(d.type==="cancel"){ const s=new Set(d.ids); for(let i=Q.length-1;i>=0;i--) if(s.has(Q[i].id)){ self.postMessage({type:"done",id:Q[i].id,cancelled:true}); Q.splice(i,1); } return; }
+  if(d.type==="say"){ if(d.front) Q.unshift(d); else Q.push(d); pump(); }
+};`;
+/* lines made with natural voices are saved on this device, so replays are instant */
+const VDB = (()=>{
+  let dbp=null, puts=0;
+  const open=()=>dbp||(dbp=new Promise((res,rej)=>{ try{ const r=indexedDB.open("backlot-voices",1);
+    r.onupgradeneeded=()=>{ const st=r.result.createObjectStore("lines"); st.createIndex("t","t"); };
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }catch(e){ rej(e); } }));
+  const prune=db=>{ try{ const st=db.transaction("lines","readwrite").objectStore("lines"); const c=st.count();
+    c.onsuccess=()=>{ let extra=c.result-1200; if(extra<=0) return; extra+=200; const cur=st.index("t").openKeyCursor(); cur.onsuccess=()=>{ const k=cur.result; if(!k||extra--<=0) return; st.delete(k.primaryKey); k.continue(); }; }; }catch(e){} };
+  return {
+    get(k){ return open().then(db=>new Promise(res=>{ try{ const q=db.transaction("lines").objectStore("lines").get(k); q.onsuccess=()=>res(q.result&&q.result.b||null); q.onerror=()=>res(null); }catch(e){ res(null); } })).catch(()=>null); },
+    put(k,b){ open().then(db=>{ try{ db.transaction("lines","readwrite").objectStore("lines").put({b,t:Date.now()},k); }catch(e){} if(++puts%40===0) prune(db); }).catch(()=>{}); }
+  };
+})();
+const KOKO = (()=>{
+  let w=null, seq=0; const pend=new Map(); const st={ready:false,device:"",loaded:0,total:0,files:{},err:null};
+  function start(){
+    if(w) return w;
+    w=new Worker(URL.createObjectURL(new Blob([KOKO_SRC],{type:"text/javascript"})),{type:"module"});
+    w.onmessage=e=>{ const d=e.data||{};
+      if(d.type==="progress"){ st.files[d.file]=[d.loaded,d.total]; let a=0,b=0; Object.values(st.files).forEach(([x,y])=>{ a+=x; b+=y; }); st.loaded=a; st.total=b; kokoTick(); return; }
+      if(d.type==="ready"){ st.ready=true; st.device=d.device; st.err=null; kokoTick(); return; }
+      if(d.type==="fail"){ st.err="Natural voices couldn't load: "+d.err; kokoTick(); return; }
+      if(d.type==="done"){ const p=pend.get(d.id); if(!p) return; pend.delete(d.id);
+        if(d.wav){ const b=new Blob([d.wav],{type:"audio/wav"}); VDB.put(p.key,b); p.res(b); }
+        else { const er=new Error(d.cancelled?"cancelled":"Natural voices: "+d.err); er.cancelled=!!d.cancelled; p.rej(er); } } };
+    w.onerror=e=>{ if(e&&e.preventDefault) e.preventDefault(); const er=new Error("Natural voices couldn't start in this browser."); st.err=er.message;
+      pend.forEach(p=>p.rej(er)); pend.clear(); try{ w.terminate(); }catch(_){} w=null; kokoTick(); };
+    return w;
+  }
+  return {
+    st,
+    voices:()=>Promise.resolve(KOKO_VOICES.map(([id,name,g,accent,desc])=>({ id, name, labels:{ gender:g==="f"?"female":"male", accent, description:desc||"" } }))),
+    quota:()=>Promise.resolve(null),
+    warm(){ try{ start().postMessage({type:"warm"}); }catch(e){ st.err="Natural voices couldn't start in this browser."; kokoTick(); } },
+    speak(text, voice, key, front){ return VDB.get(key).then(hit=>hit||new Promise((res,rej)=>{ const id=++seq; pend.set(id,{res,rej,key}); start().postMessage({type:"say",id,text,voice,front:!!front}); })); },
+    trim(keep){ if(!w) return []; const ids=[], keys=[]; pend.forEach((p,id)=>{ if(!keep.has(p.key)){ ids.push(id); keys.push(p.key); } }); if(ids.length) w.postMessage({type:"cancel",ids}); return keys; },
+    stop(){ if(w){ try{ w.terminate(); }catch(_){} w=null; } pend.forEach(p=>{ const er=new Error("cancelled"); er.cancelled=true; p.rej(er); }); pend.clear(); }
+  };
+})();
+const HD = { voices:null, err:null, loading:null, quota:null, cache:new Map(), audio:null, failed:false, eng:null };
+const engOf = () => (S.meta && S.meta.tts_engine) || "device";
+const isNat = () => engOf()==="natural";
+const NE = () => engOf()==="hd" ? (adapters.tts||null) : (isNat()&&KOKO_OK) ? KOKO : null;
+const vKey = () => isNat() ? "tts_nat_voice" : "tts_hd_voice";
+const nKey = () => isNat() ? "tts_nat_narr" : "tts_hd_narr";
+const hdOn = () => !!(NE() && HD.eng===engOf() && !HD.failed && HD.voices && HD.voices.length);
+const hdModel = () => isNat() ? "kokoro" : (S.meta && S.meta.tts_model==="eleven_flash_v2_5") ? "eleven_flash_v2_5" : "eleven_multilingual_v2";
+const hdNeed = () => !!(NE() && (!HD.voices || HD.eng!==engOf()));
+function refreshCast(){ const co=$("#castOv"); if(co&&!co.hidden) renderCast(); }
 function hdLoad(force){
-  if(!adapters.tts) return Promise.resolve([]);
+  const ad=NE(); if(!ad) return Promise.resolve([]);
+  if(HD.eng!==engOf()){ HD.voices=null; HD.err=null; HD.quota=null; HD.loading=null; HD.eng=engOf(); }
   if(HD.loading&&!force) return HD.loading;
-  HD.loading=adapters.tts.voices().then(list=>{ HD.err=null; HD.voices=list.map(v=>{ const L=v.labels||{}; const g=/female|woman/i.test(L.gender||"")?"f":/male|man/i.test(L.gender||"")?"m":"?";
+  const eng=HD.eng;
+  HD.loading=ad.voices().then(list=>{ if(HD.eng!==eng) return []; HD.err=null; HD.voices=list.map(v=>{ const L=v.labels||{}; const g=/female|woman/i.test(L.gender||"")?"f":/male|man/i.test(L.gender||"")?"m":"?";
       return { id:v.id, name:v.name, g, age:String(L.age||"").replace(/_/g," "), accent:L.accent||"", desc:L.description||L.descriptive||L.use_case||"" }; }).sort((a,b)=>a.name.localeCompare(b.name));
-    adapters.tts.quota().then(q=>{ HD.quota=q; const co=$("#castOv"); if(co&&!co.hidden) renderCast(); });
-    if(R.on) fillBar(); const co=$("#castOv"); if(co&&!co.hidden) renderCast(); return HD.voices; })
-    .catch(e=>{ HD.err=e; HD.voices=[]; const co=$("#castOv"); if(co&&!co.hidden) renderCast(); return []; });
+    ad.quota().then(q=>{ if(HD.eng!==eng) return; HD.quota=q; refreshCast(); }).catch(()=>{});
+    if(R.on) fillBar(); refreshCast(); return HD.voices; })
+    .catch(e=>{ if(HD.eng!==eng) return []; HD.err=e; HD.voices=[]; refreshCast(); return []; });
   return HD.loading;
 }
 const hdLabel = v => [v.g==="f"?"woman":v.g==="m"?"man":"", v.age, v.accent].filter(Boolean).join(", ");
-function hdPick(name, type, avoid){
-  const vs=(HD.voices||[]).filter(v=>v.id!==avoid); if(!vs.length) return (HD.voices||[])[0]||null;
+function hdCands(type, avoid){
+  const vs=(HD.voices||[]).filter(v=>v.id!==avoid); if(!vs.length) return (HD.voices||[]).slice(0,1);
   const want=/woman|girl/.test(type)?"f":/man|boy/.test(type)?"m":""; const young=/boy|girl/.test(type), old=/old/.test(type);
   let list=want?vs.filter(v=>v.g===want):vs; if(!list.length) list=vs;
   let byAge=list.filter(v=>young?/young/i.test(v.age):old?/old/i.test(v.age):/middle/i.test(v.age));
   if(!byAge.length&&!young&&!old) byAge=list.filter(v=>!/old|young/i.test(v.age));
   if(!byAge.length&&!young&&!old) byAge=list.filter(v=>!/old/i.test(v.age));
-  if(byAge.length) list=byAge;
-  return list[hashStr(name)%list.length];
+  return byAge.length?byAge:list;
 }
-function hdNarr(){ const id=S.meta&&S.meta.tts_hd_narr; return (HD.voices||[]).find(v=>v.id===id) || (HD.voices||[]).find(v=>/narrat|audiobook|storytell/i.test(v.desc)) || (HD.voices||[]).find(v=>/calm|deep|warm/i.test(v.desc)) || (HD.voices||[])[0] || null; }
-function hdChar(name){ const p=S.chars[ckey(name)]||{}; const type=guessType(p,name); const saved=(HD.voices||[]).find(v=>v.id===p.tts_hd_voice); const n=hdNarr();
-  return { voice:saved||hdPick(name,type,n&&n.id), rate:p.tts_rate?+p.tts_rate:1, type, saved:!!saved }; }
-function hdAudio(text, voiceId){
-  const k=hdModel()+"|"+voiceId+"|"+text; if(HD.cache.has(k)) return HD.cache.get(k);
-  const pr=adapters.tts.speak(text, voiceId, hdModel()).then(b=>URL.createObjectURL(b));
-  pr.catch(()=>HD.cache.delete(k)); HD.cache.set(k,pr); if(HD.cache.size>400){ const first=HD.cache.keys().next().value; HD.cache.delete(first); }
+function hdPick(name, type, avoid){ const list=hdCands(type,avoid); return list.length?list[hashStr(name)%list.length]:null; }
+/* automatic casting: biggest parts pick first, and nobody shares a voice while there are voices left */
+function hdAutoMap(){
+  const vk=vKey(), n=hdNarr();
+  const sig=[HD.eng,(HD.voices||[]).length,n&&n.id,S.scenes.length,Object.keys(S.chars).map(k=>{ const c=S.chars[k]||{}; return k+":"+(c.tts_type||"")+":"+(c[vk]||"")+":"+(c.age||"")+":"+(c.pronouns||""); }).join(",")].join("|");
+  if(hdAutoMap.sig===sig) return hdAutoMap.map;
+  const names=speakingChars(), lines={}; names.forEach(x=>lines[x]=lineCount(x));
+  const used=new Set(n?[n.id]:[]); const map={};
+  names.forEach(x=>{ const v=(HD.voices||[]).find(v=>v.id===(S.chars[ckey(x)]||{})[vk]); if(v) used.add(v.id); });
+  names.slice().sort((a,b)=>lines[b]-lines[a]||a.localeCompare(b)).forEach(x=>{
+    const p=S.chars[ckey(x)]||{}; if((HD.voices||[]).some(v=>v.id===p[vk])) return;
+    const list=hdCands(guessType(p,x), n&&n.id); if(!list.length) return; const h=hashStr(x);
+    let pick=null; for(let i=0;i<list.length;i++){ const v=list[(h+i)%list.length]; if(!used.has(v.id)){ pick=v; break; } }
+    if(!pick){ const ty=guessType(p,x), g=/woman|girl/.test(ty)?"f":/man|boy/.test(ty)?"m":""; const wide=(HD.voices||[]).filter(v=>(!g||v.g===g)&&!used.has(v.id)&&!(n&&v.id===n.id)); if(wide.length) pick=wide[h%wide.length]; }
+    pick=pick||list[h%list.length]; used.add(pick.id); map[x]=pick; });
+  hdAutoMap.sig=sig; hdAutoMap.map=map; return map;
+}
+function hdNarr(){ const id=S.meta&&S.meta[nKey()]; return (HD.voices||[]).find(v=>v.id===id) || (HD.voices||[]).find(v=>/narrat|audiobook|storytell/i.test(v.desc)) || (HD.voices||[]).find(v=>/calm|deep|warm/i.test(v.desc)) || (HD.voices||[])[0] || null; }
+function hdChar(name){ const p=S.chars[ckey(name)]||{}; const type=guessType(p,name); const saved=(HD.voices||[]).find(v=>v.id===p[vKey()]); const n=hdNarr();
+  return { voice:saved||hdAutoMap()[name]||hdPick(name,type,n&&n.id), rate:p.tts_rate?+p.tts_rate:1, type, saved:!!saved }; }
+const hdKey = (text, voiceId) => hdModel()+"|"+voiceId+"|"+text;
+function hdAudio(text, voiceId, front){
+  const k=hdKey(text,voiceId); if(HD.cache.has(k)) return HD.cache.get(k);
+  const pr=(isNat()?KOKO.speak(text, voiceId, k, front):NE().speak(text, voiceId, hdModel())).then(b=>URL.createObjectURL(b));
+  pr.catch(()=>{ if(HD.cache.get(k)===pr) HD.cache.delete(k); }); HD.cache.set(k,pr);
+  if(HD.cache.size>400){ const first=HD.cache.keys().next().value; const old=HD.cache.get(first); HD.cache.delete(first); old.then(u=>setTimeout(()=>URL.revokeObjectURL(u),60000)).catch(()=>{}); }
   return pr;
 }
 function hdFor(it){ const v=it.who?hdChar(it.who):{voice:hdNarr(),rate:1}; return v; }
 function hdPrefetch(j){ const it=R.queue[j]; if(!it||!hdOn()) return; const v=hdFor(it); if(v.voice) hdAudio(it.text.slice(0,1500), v.voice.id).catch(()=>{}); }
+const AHEAD = () => isNat() ? 6 : 2;
+function hdAhead(){ for(let d=1; d<=AHEAD(); d++) hdPrefetch(R.i+d); }
+/* after a jump, drop natural-voice lines that are no longer coming up */
+function natTrim(){
+  if(!isNat()||!hdOn()) return; const keep=new Set();
+  for(let j=R.i; j<Math.min(R.queue.length,R.i+AHEAD()+1); j++){ const it=R.queue[j], v=hdFor(it); if(v.voice) keep.add(hdKey(it.text.slice(0,1500), v.voice.id)); }
+  KOKO.trim(keep).forEach(k=>HD.cache.delete(k));
+}
 function hdStop(){ if(HD.audio){ try{ HD.audio.pause(); }catch(e){} HD.audio.onended=null; HD.audio.onerror=null; } }
 function hdFail(e){
-  HD.failed=true; hdStop();
-  const msg=e&&e.status===401?"Sign in again to use HD voices.":e&&e.status===403?"HD voices are only for the Once Lost Media team.":(e&&e.message)||"HD voices aren't available.";
+  HD.failed=true; hdStop(); if(R.wait) rdWait(false);
+  const msg=isNat()?((e&&e.message)||"Natural voices aren't available on this device."):e&&e.status===401?"Sign in again to use HD voices.":e&&e.status===403?"HD voices are only for the Once Lost Media team.":(e&&e.message)||"HD voices aren't available.";
   toast(msg+" Using device voices for now."); if(R.on) fillBar();
 }
+const mb = n => Math.round((n||0)/1e6);
+function waitText(){
+  const s=KOKO.st;
+  if(isNat()&&!s.ready&&s.total) return `Downloading natural voices… ${Math.min(100,Math.round(100*s.loaded/s.total))}% · only the first time on this device`;
+  if(isNat()&&!s.ready) return "Starting natural voices…";
+  return "Getting the next line ready…";
+}
+function rdWait(on){ R.wait=on; const p=$("#rdPos"); if(!p) return; if(on) p.textContent=waitText(); else updateBar(); }
+function natStatus(){
+  const s=KOKO.st;
+  if(!KOKO_OK) return `<span class="warn">This browser can't run natural voices.</span>`;
+  if(s.err) return `<span class="warn">${esc(s.err)}</span>`;
+  if(HD.failed) return `<span class="warn">Natural voices hit a problem, so device voices are playing. Switch to Natural again to retry.</span>`;
+  if(!s.ready&&s.total) return `Downloading natural voices… ${Math.min(100,Math.round(100*s.loaded/s.total))}% (${mb(s.loaded)} of ${mb(s.total)} MB). This only happens once on each device.`;
+  if(!s.ready) return "Free, natural-sounding voices that run right on this device. The first time, each device downloads them once (about 90 to 330 MB).";
+  return `${(HD.voices||[]).length} natural voices · free · running on this device${s.device==="webgpu"?"":" (this device is slower, so Backlot prepares lines ahead)"}. Lines you've heard replay instantly.`;
+}
+function kokoTick(){ if(R.wait){ const p=$("#rdPos"); if(p) p.textContent=waitText(); } const c=$("#castStatus"); if(c&&isNat()) c.innerHTML=natStatus(); }
 const FEM = /\b(female|woman|samantha|karen|moira|tessa|victoria|fiona|susan|allison|ava|zoe|serena|kate|kathy|vicki|veena|nicky|joana|martha|catherine|sara|amelie|anna|alice|ellen|ioana|zira|aria|jenny|libby|sonia|natasha|clara|emma|olivia|michelle|ana|hazel|heera|linda|eva|paulina|monica|luciana|shelley|sandy|flo|grandma)\b/i;
 const MAL = /\b(male|man|alex|daniel|fred|tom|oliver|arthur|aaron|rishi|david|mark|guy|ryan|james|george|thomas|lee|gordon|bruce|ralph|junior|albert|reed|rocko|eddy|grandpa|christopher|eric|roger|steffan|william|liam|brian|andrew|ravi)\b/i;
 const vGender = v => { const n=v.name||""; if(/female/i.test(n)) return "f"; if(/\bmale\b/i.test(n)) return "m"; if(FEM.test(n)&&!MAL.test(n)) return "f"; if(MAL.test(n)) return "m"; return "?"; };
@@ -1299,7 +1447,7 @@ function markReading(it){
 }
 function updateBar(){
   const it=R.queue[R.i]; if(!it||!$("#rdNow")) return;
-  $("#rdNow").innerHTML=`<b>${esc(it.who||"Narrator")}${hdOn()?' <i class="hdtag">HD</i>':""}</b><span>${esc(it.text.length>90?it.text.slice(0,88)+"…":it.text)}</span>`;
+  $("#rdNow").innerHTML=`<b>${esc(it.who||"Narrator")}${hdOn()?` <i class="hdtag">${isNat()?"Natural":"HD"}</i>`:""}</b><span>${esc(it.text.length>90?it.text.slice(0,88)+"…":it.text)}</span>`;
   const pr=$("#rdSeek"); pr.max=String(Math.max(0,R.queue.length-1)); if(document.activeElement!==pr) pr.value=String(R.i);
   $("#rdPos").textContent=`Line ${R.i+1} of ${R.queue.length} · about ${timeLeft()} left`;
   const sel=$("#rdScene"); if(sel&&document.activeElement!==sel) sel.value=it.sc;
@@ -1310,16 +1458,18 @@ function speakItem(){
   markReading(it);
   if(hdOn()){
     const tok=++R.tok, v=hdFor(it), base=+rdPref("rate","1");
-    if(!v.voice){ hdFail(new Error("No HD voices found.")); return speakItem(); }
-    hdAudio(it.text.slice(0,1500), v.voice.id).then(url=>{
-      if(tok!==R.tok||!R.playing) return;
+    if(!v.voice){ hdFail(new Error("No voices found.")); return speakItem(); }
+    const wt=setTimeout(()=>{ if(tok===R.tok&&R.playing) rdWait(true); },350);
+    hdAudio(it.text.slice(0,1500), v.voice.id, true).then(url=>{
+      clearTimeout(wt); if(tok!==R.tok||!R.playing) return; if(R.wait) rdWait(false);
       if(!HD.audio) HD.audio=new Audio();
       const a=HD.audio; a.src=url; a.playbackRate=Math.max(0.5,Math.min(2,(v.rate||1)*base)); try{ a.preservesPitch=true; }catch(e){}
       a.onended=()=>{ if(tok!==R.tok||!R.playing) return; R.i++; setTimeout(()=>{ if(tok===R.tok) speakItem(); },it.who?160:90); };
-      a.onerror=()=>{ if(tok===R.tok){ hdFail(new Error("That HD line couldn't play.")); speakItem(); } };
-      a.play().catch(err=>{ if(tok!==R.tok) return; if(err&&err.name==="NotAllowedError"){ pauseRead(); toast("Press Play to start the HD voices."); } else { hdFail(err); speakItem(); } });
-      hdPrefetch(R.i+1); hdPrefetch(R.i+2);
-    }).catch(err=>{ if(tok!==R.tok) return; hdFail(err); speakItem(); });
+      a.onerror=()=>{ if(tok===R.tok){ hdFail(new Error("That line couldn't play.")); speakItem(); } };
+      a.play().catch(err=>{ if(tok!==R.tok) return; if(err&&err.name==="NotAllowedError"){ pauseRead(); toast("Press Play to start the voices."); } else { hdFail(err); speakItem(); } });
+      hdAhead();
+    }).catch(err=>{ clearTimeout(wt); if(tok!==R.tok||!R.playing) return; if(R.wait) rdWait(false); if(err&&err.cancelled){ speakItem(); return; } hdFail(err); speakItem(); });
+    hdAhead();
     return;
   }
   const tok=++R.tok, vs=it.who?charVoice(it.who):{voice:narrVoice(),pitch:1,rate:1}, base=+rdPref("rate","1");
@@ -1386,9 +1536,9 @@ function fillBar(){
   setPlayBtn(); updateBar();
 }
 function setPlayBtn(){ const b=$("#rdPlay"); if(b) b.textContent=R.playing?"❚❚ Pause":"▶ Play"; }
-function playRead(){ if(!TTS&&!hdOn()) return; if(R.i>=R.queue.length) R.i=0; R.playing=true; R.tok++; if(TTS) TTS.cancel(); hdStop(); setPlayBtn(); setTimeout(speakItem,60); }
-function pauseRead(){ R.playing=false; R.tok++; if(TTS) TTS.cancel(); hdStop(); setPlayBtn(); }
-function stopRead(){ R.on=false; R.playing=false; R.tok++; if(TTS) TTS.cancel(); hdStop(); setPlayBtn(); $("#reader").hidden=true; markReading(null); closeCast(); }
+function playRead(){ if(!TTS&&!hdOn()) return; if(R.i>=R.queue.length) R.i=0; R.playing=true; R.tok++; if(TTS) TTS.cancel(); hdStop(); natTrim(); setPlayBtn(); setTimeout(speakItem,60); }
+function pauseRead(){ R.playing=false; R.tok++; if(TTS) TTS.cancel(); hdStop(); if(R.wait) rdWait(false); setPlayBtn(); }
+function stopRead(){ R.on=false; R.playing=false; R.tok++; R.wait=false; if(TTS) TTS.cancel(); hdStop(); setPlayBtn(); $("#reader").hidden=true; markReading(null); closeCast(); }
 function stepRead(d){ R.i=Math.max(0,Math.min(R.queue.length-1,R.i+d)); if(R.playing) playRead(); else markReading(R.queue[R.i]); }
 function stepScene(d){
   const cur=R.queue[R.i]; if(!cur) return; const n=sceneNo(cur.sc); let j;
@@ -1401,7 +1551,8 @@ function rebuildKeep(){ const cur=R.queue[R.i]; R.queue=buildQueue(); if(!R.queu
   R.i=j; fillBar(); if(R.playing) playRead(); else markReading(R.queue[R.i]); }
 function startRead(fromScene){
   if(!TTS&&!hdOn()){ toast("This browser can't read aloud. Try Chrome, Edge or Safari."); return; }
-  if(adapters.tts&&S.meta.tts_engine==="hd"&&!HD.voices) hdLoad();
+  if(hdNeed()) hdLoad();
+  if(isNat()&&KOKO_OK&&!HD.failed) KOKO.warm();
   if(S.view!=="script") setView("script");
   R.queue=buildQueue(); if(!R.queue.length){ toast("There's nothing to read yet. Write a scene first."); return; }
   if(!R.voices.length) loadVoices();
@@ -1418,35 +1569,36 @@ function sayOnce(text, vs){
   pauseRead(); const u=new SpeechSynthesisUtterance(text);
   if(vs.voice){ u.voice=vs.voice; u.lang=vs.voice.lang; } u.pitch=vs.pitch||1; u.rate=(vs.rate||1)*(+rdPref("rate","1")); R.utt=u; TTS.cancel(); TTS.speak(u);
 }
-function hdSay(text, voice){ pauseRead(); if(!voice) return; hdAudio(text.slice(0,1500), voice.id).then(url=>{ if(!HD.audio) HD.audio=new Audio(); HD.audio.onended=null; HD.audio.src=url; HD.audio.playbackRate=+rdPref("rate","1")||1; HD.audio.play().catch(()=>{}); }).catch(e=>toast((e&&e.message)||"That HD voice couldn't play.")); }
+function hdSay(text, voice){ pauseRead(); if(!voice) return; if(isNat()&&!KOKO.st.ready) toast("Getting natural voices ready. The first time on a device takes a minute or two.");
+  hdAudio(text.slice(0,1500), voice.id, true).then(url=>{ if(R.playing) return; if(!HD.audio) HD.audio=new Audio(); HD.audio.onended=null; HD.audio.src=url; HD.audio.playbackRate=+rdPref("rate","1")||1; HD.audio.play().catch(()=>{}); }).catch(e=>{ if(!(e&&e.cancelled)) toast((e&&e.message)||"That voice couldn't play."); }); }
 function hearChar(name){ if(hdOn()) hdSay(sampleLine(name), hdChar(name).voice); else sayOnce(sampleLine(name), charVoice(name)); }
 function hearNarr(){ const t=`${S.meta.title||"Untitled"}. Interior. Day.`; if(hdOn()) hdSay(t, hdNarr()); else sayOnce(t, {voice:narrVoice()}); }
 /* cast panel: a voice for the narrator and every character, in one place */
 function speakingChars(){ const nums=castNumbers(); return Object.keys(nums).sort((a,b)=>nums[a]-nums[b]); }
 function lineCount(n){ let c=0; S.scenes.forEach(sc=>{ let w=null; sc.blocks.forEach(b=>{ if(b.t==="character") w=cleanChar(b.x||""); else if(b.t==="dialogue"&&w===n) c++; else if(b.t!=="paren") w=null; }); }); return c; }
 function engineBox(dis){
-  if(!adapters.tts) return "";
-  const hdSel=S.meta.tts_engine==="hd"; const q=HD.quota;
-  const status=!hdSel?"Free voices built into each device.":HD.err?`<span class="warn">${esc(HD.err.message)}</span>`:!HD.voices?"Loading HD voices…":HD.failed?`<span class="warn">HD voices hit a problem, so device voices are playing. Switch to HD again to retry.</span>`:`${HD.voices.length} HD voices${q&&q.limit?` · ${Number(q.used||0).toLocaleString()} of ${Number(q.limit).toLocaleString()} characters used this month`:""}. Lines you've heard before replay free.`;
-  return `<div class="cast-engine"><label>Voice quality<select class="field" id="castEngine" ${dis}><option value="device" ${hdSel?"":"selected"}>Device voices (free)</option><option value="hd" ${hdSel?"selected":""}>HD voices (ElevenLabs)</option></select></label>
+  const e=engOf(), hdSel=e==="hd"&&!!adapters.tts, natSel=e==="natural"&&KOKO_OK; const q=HD.quota;
+  if(!adapters.tts&&!KOKO_OK) return "";
+  const status=natSel?natStatus():!hdSel?"Free voices built into each device.":HD.err?`<span class="warn">${esc(HD.err.message)}</span>`:!HD.voices?"Loading HD voices…":HD.failed?`<span class="warn">HD voices hit a problem, so device voices are playing. Switch to HD again to retry.</span>`:`${HD.voices.length} HD voices${q&&q.limit?` · ${Number(q.used||0).toLocaleString()} of ${Number(q.limit).toLocaleString()} characters used this month`:""}. Lines you've heard before replay free.`;
+  return `<div class="cast-engine"><label>Voice quality<select class="field" id="castEngine" ${dis}><option value="device" ${!hdSel&&!natSel?"selected":""}>Device voices (free)</option>${KOKO_OK?`<option value="natural" ${natSel?"selected":""}>Natural voices (free)</option>`:""}${adapters.tts?`<option value="hd" ${hdSel?"selected":""}>HD voices (ElevenLabs)</option>`:""}</select></label>
     ${hdSel?`<label>HD model<select class="field" id="castModel" ${dis}><option value="eleven_multilingual_v2" ${hdModel()==="eleven_multilingual_v2"?"selected":""}>Best quality</option><option value="eleven_flash_v2_5" ${hdModel()==="eleven_flash_v2_5"?"selected":""}>Faster, uses half the credits</option></select></label>`:""}
-    <p class="hint">${status}</p></div>`;
+    <p class="hint" id="castStatus">${status}</p></div>`;
 }
 function hdOpts(sel, g){ const list=(HD.voices||[]).slice().sort((a,b)=>(g&&(a.g===g)!==(b.g===g))?(a.g===g?-1:1):a.name.localeCompare(b.name)); return list.map(v=>`<option value="${esc(v.id)}" ${sel&&sel.id===v.id?"selected":""}>${esc(v.name)}${hdLabel(v)?` (${esc(hdLabel(v))})`:""}</option>`).join(""); }
 function renderCast(){
   const dis=S.canWrite?"":"disabled"; const names=speakingChars(); const narr=narrVoice(); const hd=hdOn();
   if(hd){ $("#castBody").innerHTML=engineBox(dis)+`
-    <div class="tw"><table class="t cast"><thead><tr><th>Part</th><th>Voice type</th><th>HD voice</th><th></th></tr></thead><tbody>
+    <div class="tw"><table class="t cast"><thead><tr><th>Part</th><th>Voice type</th><th>${isNat()?"Natural voice":"HD voice"}</th><th></th></tr></thead><tbody>
     <tr><td><b>Narrator</b><small>Headings and action</small></td><td class="muted">—</td>
       <td><select class="field" data-narr ${dis}>${hdOpts(hdNarr())}</select></td>
       <td><button class="btn" data-hear-narr type="button" aria-label="Hear the narrator">▶</button></td></tr>
     ${names.map(n=>{ const k=ckey(n), p=S.chars[k]||{}, h=hdChar(n); const g=/woman|girl/.test(h.type)?"f":/man|boy/.test(h.type)?"m":""; const lc=lineCount(n); const auto=VTYPES.find(t=>t[0]===h.type);
       return `<tr data-ck="${esc(k)}" data-cn="${esc(n)}"><td><b>${esc(n)}</b><small>${lc} line${lc===1?"":"s"}</small></td>
       <td><select class="field" data-ct="tts_type" ${dis}>${VTYPES.map(([v,l])=>`<option value="${v}" ${(p.tts_type||"")===v?"selected":""}>${l}${!v&&h.type&&!p.tts_type&&auto?` (${auto[1].toLowerCase()})`:""}</option>`).join("")}</select></td>
-      <td><select class="field" data-ct="tts_hd_voice" ${dis}><option value="">Automatic: ${esc(h.voice?h.voice.name:"—")}</option>${hdOpts(h.saved?h.voice:null,g)}</select></td>
+      <td><select class="field" data-ct="${vKey()}" ${dis}><option value="">Automatic: ${esc(h.voice?h.voice.name:"—")}</option>${hdOpts(h.saved?h.voice:null,g)}</select></td>
       <td><button class="btn" data-hear="${esc(n)}" type="button" aria-label="Hear ${esc(n)}">▶</button></td></tr>`; }).join("")||`<tr><td colspan="4" class="muted">No speaking characters yet.</td></tr>`}
     </tbody></table></div>`; return; }
-  $("#castBody").innerHTML=!TTS?engineBox(dis)+`<p class="hint">This browser can't read aloud with device voices. Try Chrome, Edge or Safari${adapters.tts?", or switch to HD voices":""}.</p>`:engineBox(dis)+`
+  $("#castBody").innerHTML=!TTS?engineBox(dis)+`<p class="hint">This browser can't read aloud with device voices. Try Chrome, Edge or Safari${KOKO_OK||adapters.tts?", or switch Voice quality above":""}.</p>`:engineBox(dis)+`
     <p class="hint" style="margin:0 0 12px">Pick a voice type and Backlot finds a matching voice, or choose an exact voice. Every change plays a line so you can hear it. Choices are saved for your whole team.${R.voices.length<6?` This device has only ${R.voices.length} English voice${R.voices.length===1?"":"s"}, so some characters share a voice at a different pitch. Macs, iPhones and Chrome usually have more.`:""}</p>
     <div class="tw"><table class="t cast"><thead><tr><th>Part</th><th>Voice type</th><th>Voice</th><th>Pitch</th><th></th></tr></thead><tbody>
     <tr><td><b>Narrator</b><small>Headings and action</small></td><td class="muted">—</td>
@@ -1460,7 +1612,7 @@ function renderCast(){
       <td><button class="btn" data-hear="${esc(n)}" type="button" aria-label="Hear ${esc(n)}">▶</button></td></tr>`; }).join("")||`<tr><td colspan="5" class="muted">No speaking characters yet.</td></tr>`}
     </tbody></table></div>`;
 }
-function openCast(){ $("#castOv").hidden=false; if(adapters.tts&&S.meta.tts_engine==="hd"&&!HD.voices) hdLoad(); renderCast(); }
+function openCast(){ $("#castOv").hidden=false; if(hdNeed()) hdLoad(); if(isNat()&&KOKO_OK&&!HD.failed) KOKO.warm(); renderCast(); }
 function closeCast(){ const o=$("#castOv"); if(o) o.hidden=true; }
 (function initCast(){
   const ov=document.createElement("div"); ov.className="ov"; ov.id="castOv"; ov.hidden=true;
@@ -1471,15 +1623,15 @@ function closeCast(){ const o=$("#castOv"); if(o) o.hidden=true; }
     if(e.target.closest("[data-hear-narr]")) hearNarr(); });
   ov.addEventListener("change",e=>{
     const el=e.target;
-    if(el.hasAttribute("data-narr")){ if(hdOn()) S.meta.tts_hd_narr=el.value; else { rdSet("narr",el.value); S.meta.tts_narr=el.value; } if(S.canWrite) write("project/meta",r=>r.set({...S.meta})); renderCast(); hearNarr(); return; }
-    if(el.id==="castEngine"||el.id==="castModel"){ if(el.id==="castEngine"){ S.meta.tts_engine=el.value; HD.failed=false; if(el.value==="hd") hdLoad(true); } else S.meta.tts_model=el.value; if(S.canWrite) write("project/meta",r=>r.set({...S.meta})); renderCast(); if(R.on) fillBar(); return; }
+    if(el.hasAttribute("data-narr")){ if(hdOn()) S.meta[nKey()]=el.value; else { rdSet("narr",el.value); S.meta.tts_narr=el.value; } if(S.canWrite) write("project/meta",r=>r.set({...S.meta})); renderCast(); hearNarr(); return; }
+    if(el.id==="castEngine"||el.id==="castModel"){ if(el.id==="castEngine"){ S.meta.tts_engine=el.value; HD.failed=false; KOKO.st.err=null; if(el.value==="hd"||el.value==="natural") hdLoad(true); if(el.value==="natural") KOKO.warm(); } else S.meta.tts_model=el.value; if(S.canWrite) write("project/meta",r=>r.set({...S.meta})); renderCast(); if(R.on) fillBar(); return; }
     const row=el.closest("tr[data-ck]"); if(!row||!el.dataset.ct) return;
     const c={name:row.dataset.cn,key:row.dataset.ck}; const f={[el.dataset.ct]:el.value};
-    if(el.dataset.ct==="tts_type"){ f.tts_voice=""; f.tts_hd_voice=""; }
+    if(el.dataset.ct==="tts_type"){ f.tts_voice=""; f.tts_hd_voice=""; f.tts_nat_voice=""; }
     patchChar(c,f); renderCast(); hearChar(c.name);
   });
 })();
-setTimeout(()=>{ if(!dead&&adapters.tts&&S.meta&&S.meta.tts_engine==="hd") hdLoad(); },2500);
+setTimeout(()=>{ if(!dead&&hdNeed()) hdLoad(); },2500);
 if(TTS){ loadVoices(); if(TTS.addEventListener) TTS.addEventListener("voiceschanged",loadVoices); else TTS.onvoiceschanged=loadVoices; }
 $("#readBtn").onclick=()=>startRead();
 $("#scenes").addEventListener("dblclick",e=>{ if(!R.on) return; const el=e.target.closest(".blk"); const sec=e.target.closest("section.scene"); if(!el||!sec) return;
@@ -1537,5 +1689,5 @@ async function boot(){
   }
 }
 boot();
-return ()=>{ dead=true; try{ R.tok++; R.playing=false; if(TTS) TTS.cancel(); hdStop(); HD.cache.forEach(p=>p.then(u=>URL.revokeObjectURL(u)).catch(()=>{})); }catch(e){} [...S.dirty].forEach(id=>{ clearTimeout(S.timers[id]); flushScene(id); }); unsubs.forEach(u=>{ try{u&&u()}catch(e){} }); };
+return ()=>{ dead=true; try{ R.tok++; R.playing=false; if(TTS) TTS.cancel(); hdStop(); KOKO.stop(); HD.cache.forEach(p=>p.then(u=>URL.revokeObjectURL(u)).catch(()=>{})); }catch(e){} [...S.dirty].forEach(id=>{ clearTimeout(S.timers[id]); flushScene(id); }); unsubs.forEach(u=>{ try{u&&u()}catch(e){} }); };
 }
