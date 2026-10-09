@@ -131,7 +131,7 @@ export function FilmCard({ film }) {
     <Link to={`/films/${film.id}`} className="film-card">
       <div className="film-poster">
         {film.poster_url ? <img src={film.poster_url} alt="" loading="lazy" /> : <div className="poster-blank"><img src={asset("emblem.png")} alt="" /></div>}
-        <span className="play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7z" fill="currentColor" /></svg></span>
+        {film.video_url ? <span className="play" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7z" fill="currentColor" /></svg></span> : <span className="soon">In development</span>}
       </div>
       <div className="film-meta">
         <h3>{film.title}</h3>
