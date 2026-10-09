@@ -468,7 +468,7 @@ export function FilmEditor({ id }) {
 
   const save = async (publish) => {
     if (!film.title.trim()) { setError(new Error("Give the film a title.")); return; }
-    if (!film.video_url) { setError(new Error("Upload the movie file first.")); return; }
+    if (progress !== null && progress < 1) { setError(new Error("Wait for the movie to finish uploading.")); return; }
     setBusy("Saving…"); setError(null);
     try {
       const row = await api.saveFilm({ ...film, year: film.year ? Number(film.year) : null, runtime: film.runtime ? Number(film.runtime) : null, published: publish ?? film.published });
@@ -515,6 +515,7 @@ export function FilmEditor({ id }) {
               <button className="drop-cta" onClick={() => videoInput.current.click()}>
                 <strong>Drop a movie file here</strong>
                 <span>or click to choose one · MP4 (H.264) plays everywhere</span>
+                <span>No movie yet? Add a poster and description and it will show as In development.</span>
               </button>
             )}
           </div>

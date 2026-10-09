@@ -92,7 +92,12 @@ export function Watch({ id }) {
   return (
     <main className="watch">
       <div className="screen">
-        {broken ? (
+        {!f.video_url ? (
+          <div className="screen-soon">
+            {f.poster_url ? <img src={f.poster_url} alt="" /> : null}
+            <span className="pill soon">In development</span>
+          </div>
+        ) : broken ? (
           <div className="screen-msg">
             <p>{DEMO ? "Demo uploads only play until the page reloads. Connect Supabase to keep films." : "This film couldn't be loaded. Try again in a moment."}</p>
           </div>
