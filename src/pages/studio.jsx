@@ -560,7 +560,7 @@ export function BacklotPicker() {
   if (teams.data && teams.data.length === 0) return <FirstTeam />;
   return (
     <main className="page wide">
-      <header className="page-head"><p className="eyebrow">Backlot</p><h1>Pick a team</h1></header>
+      <header className="page-head"><p className="eyebrow">Backlot</p><h1>Pick a project</h1></header>
       {teams.error ? <ErrorNote error={teams.error} /> : <div className="studio-grid"><TeamsCard me={user} /></div>}
     </main>
   );
@@ -568,6 +568,16 @@ export function BacklotPicker() {
 
 export function BacklotPage({ ws }) {
   const ref = useRef(null);
+  const { navigate } = useRouter();
+  const [busy, setBusy] = useState(false);
+  const newProject = async () => {
+    const name = window.prompt("Name your new project (you can change it later)", "Untitled project");
+    if (name == null) return;
+    setBusy(true);
+    try { const id = await api.teams.create(name.trim() || "Untitled project"); navigate("/studio/backlot/" + id); }
+    catch (e) { toast(e.message || "Couldn't start a new project."); }
+    setBusy(false);
+  };
   const [error, setError] = useState(null);
   const teams = useLoad(() => api.teams.mine(), []);
   const team = teams.data && teams.data.find((t) => t.id === ws);
@@ -586,11 +596,20 @@ export function BacklotPage({ ws }) {
     };
   }, [ws]);
   if (teams.data && !team) return (
-    <main className="page narrow"><Empty title="You're not on this team"><p>Ask the team owner for an invite link, or open one of your own teams.</p><Link to="/studio" className="btn gold">Go to the Studio</Link></Empty></main>
+    <main className="page narrow"><Empty title="You're not on this project"><p>Ask the project owner for an invite link, or open one of your own projects.</p><Link to="/studio" className="btn gold">Go to the Studio</Link></Empty></main>
   );
   return (
     <main className="backlot-host">
-      <div className="team-strip"><span className="muted">Team</span> <strong>{team ? team.name : "…"}</strong>{teams.data && teams.data.length > 1 && <Link to="/studio" className="linkish">Switch team</Link>}<Link to="/studio" className="linkish">Invite people</Link></div>
+      <div className="team-strip">
+        <label htmlFor="projSel" className="muted">Project</label>
+        <select id="projSel" className="input proj-sel" value={ws} onChange={(e) => navigate("/studio/backlot/" + e.target.value)} disabled={!teams.data}>
+          {(teams.data || (team ? [team] : [{ id: ws, name: "…" }])).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <span className="muted">{team ? `${team.members} ${team.members === 1 ? "person" : "people"}` : ""}</span>
+        <span style={{ marginRight: "auto" }} />
+        <button type="button" className="btn" onClick={newProject} disabled={busy}>{busy ? "Starting…" : "+ New project"}</button>
+        <Link to="/studio" className="linkish">Add people to this project</Link>
+      </div>
       <ErrorNote error={error} />
       <div ref={ref} className="backlot"><div style={{ padding: 32 }}><Loading label="Opening Backlot" /></div></div>
     </main>
@@ -614,11 +633,11 @@ function FirstTeam() {
     <main className="page narrow">
       <header className="page-head">
         <p className="eyebrow">Welcome to Backlot</p>
-        <h1>Name your team</h1>
-        <p className="lede">A team is your production: everyone on it shares the script, storyboard and call sheets. You can invite people next.</p>
+        <h1>Name your first project</h1>
+        <p className="lede">Each project has its own screenplay, storyboard and call sheets. You can add people to it next.</p>
       </header>
       <form className="card fm" onSubmit={go}>
-        <label htmlFor="ft-name">Team or production name</label>
+        <label htmlFor="ft-name">Project name</label>
         <input id="ft-name" className="input" autoFocus maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder={first ? first + "'s production" : "Night Shift Films"} />
         <ErrorNote error={error} />
         <button className="btn gold" disabled={busy} style={{ justifySelf: "start" }}>{busy ? "Setting up…" : "Start writing"}</button>
@@ -639,15 +658,15 @@ function TeamsCard({ me }) {
   const { navigate } = useRouter();
   const create = async (e) => {
     e.preventDefault(); setError(null); setBusy(true);
-    try { const id = await api.teams.create(name.trim()); setName(""); toast("Team created."); navigate("/studio/backlot/" + id); }
+    try { const id = await api.teams.create(name.trim()); setName(""); toast("Project created."); navigate("/studio/backlot/" + id); }
     catch (err) { setError(err); }
     setBusy(false);
   };
   const refresh = () => setTick((t) => t + 1);
   return (
     <section className="card backlot-card teams-card" id="teams">
-      <div className="card-head"><h2>Backlot teams</h2><span className="muted">{teams.data ? teams.data.length : ""}</span></div>
-      <p className="hint" style={{ marginTop: 0 }}>Write the screenplay, storyboard every shot and plan call sheets together, live. Each team's projects are private to the people on it.</p>
+      <div className="card-head"><h2>Backlot projects</h2><span className="muted">{teams.data ? teams.data.length : ""}</span></div>
+      <p className="hint" style={{ marginTop: 0 }}>Each project has its own screenplay, storyboard and call sheets. Add people to any project and write together, live. A project is private to the people on it.</p>
       {teams.loading ? <Loading /> : teams.error ? <ErrorNote error={teams.error} /> : teams.data.length ? (
         <ul className="rows">
           {teams.data.map((t) => (
@@ -655,7 +674,7 @@ function TeamsCard({ me }) {
               <div className="team-line">
                 <div className="row-main">
                   <span className="row-title">{t.name}</span>
-                  <span className="row-sub">{t.role === "owner" ? "You run this team" : "Member"} · {t.members} {t.members === 1 ? "person" : "people"}</span>
+                  <span className="row-sub">{t.role === "owner" ? "Your project" : "Shared with you"} · {t.members} {t.members === 1 ? "person" : "people"}</span>
                 </div>
                 <button className="btn ghost sm" onClick={() => setOpen(open === t.id ? null : t.id)} aria-expanded={open === t.id}>{open === t.id ? "Close" : t.role === "owner" ? "Invite & manage" : "Members"}</button>
                 <Link to={"/studio/backlot/" + t.id} className="btn gold sm">Open</Link>
@@ -664,11 +683,11 @@ function TeamsCard({ me }) {
             </li>
           ))}
         </ul>
-      ) : <p className="muted">You're not on a team yet. Start one below, or open an invite link someone sent you.</p>}
+      ) : <p className="muted">You don't have a project yet. Start one below, or open an invite link someone sent you.</p>}
       <form className="fm inline" onSubmit={create} style={{ marginTop: 14 }}>
-        <label htmlFor="new-team" className="sr">New team name</label>
-        <input id="new-team" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="New team name, e.g. Night Shift Films" />
-        <button className="btn" disabled={busy}>{busy ? "Starting…" : "Start a team"}</button>
+        <label htmlFor="new-team" className="sr">New project name</label>
+        <input id="new-team" className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="New project name, e.g. Bought Back" />
+        <button className="btn" disabled={busy}>{busy ? "Starting…" : "Start a project"}</button>
       </form>
       <ErrorNote error={error} />
     </section>
@@ -689,7 +708,7 @@ function TeamPanel({ team, me, onChange, onGone }) {
       {owner && (
         <div className="tp-block">
           <h3>Invite people</h3>
-          <p className="hint" style={{ margin: 0 }}>Anyone with the link can join this team for 14 days, up to 25 people. They'll need a free account.</p>
+          <p className="hint" style={{ margin: 0 }}>Anyone with the link can join this project for 14 days, up to 25 people. They'll need a free account.</p>
           {invites.loading ? <Loading /> : (invites.data || []).map((i) => (
             <div key={i.token} className="invite-row">
               <input className="input" readOnly value={link(i.token)} onFocus={(e) => e.target.select()} aria-label="Invite link" />
@@ -717,14 +736,14 @@ function TeamPanel({ team, me, onChange, onGone }) {
       </div>
       <div className="tp-block">
         {owner ? (<>
-          <form className="fm inline" onSubmit={(e) => { e.preventDefault(); act(() => api.teams.rename(team.id, rename), "Team renamed."); }}>
-            <label htmlFor={"rn-" + team.id} className="sr">Team name</label>
+          <form className="fm inline" onSubmit={(e) => { e.preventDefault(); act(() => api.teams.rename(team.id, rename), "Project renamed."); }}>
+            <label htmlFor={"rn-" + team.id} className="sr">Project name</label>
             <input id={"rn-" + team.id} className="input" value={rename} maxLength={80} onChange={(e) => setRename(e.target.value)} />
             <button className="btn sm">Rename</button>
           </form>
-          {!team.is_home && <ConfirmButton className="btn danger sm" confirm="Delete the team and all its projects?" onConfirm={async () => { try { await api.teams.remove(team.id); toast("Team deleted."); onGone(); } catch (e) { toast(e.message); } }}>Delete team</ConfirmButton>}
+          {!team.is_home && <ConfirmButton className="btn danger sm" confirm="Delete this project, including its screenplay, storyboard and call sheets?" onConfirm={async () => { try { await api.teams.remove(team.id); toast("Project deleted."); onGone(); } catch (e) { toast(e.message); } }}>Delete project</ConfirmButton>}
         </>) : (
-          <ConfirmButton className="btn ghost sm" confirm="Leave this team?" onConfirm={async () => { try { await api.teams.leave(team.id); toast("You left the team."); onGone(); } catch (e) { toast(e.message); } }}>Leave team</ConfirmButton>
+          <ConfirmButton className="btn ghost sm" confirm="Leave this project?" onConfirm={async () => { try { await api.teams.leave(team.id); toast("You left the project."); onGone(); } catch (e) { toast(e.message); } }}>Leave project</ConfirmButton>
         )}
       </div>
     </div>
