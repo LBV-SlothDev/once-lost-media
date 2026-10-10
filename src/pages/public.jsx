@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, DEMO, CAPTCHA_KEY, SIGNUPS } from "../lib/backend.js";
+import { api, DEMO, CAPTCHA_KEY, SIGNUPS, logVisit } from "../lib/backend.js";
 import { useAuth } from "../lib/auth.jsx";
 import { Link, useRouter } from "../lib/router.jsx";
 import { renderMarkdown, readingTime } from "../lib/markdown.js";
@@ -168,6 +168,7 @@ export function Post({ slug }) {
 
 export function BibleStudy() {
   const studies = useLoad(() => api.listStudies(), []);
+  useEffect(() => { logVisit("study"); }, []);
   useEffect(() => { document.title = "Bible Study · Once Lost Media"; return () => { document.title = "Once Lost Media"; }; }, []);
   return (
     <main className="page">
@@ -188,6 +189,7 @@ export function BibleStudy() {
 export function Study({ slug }) {
   const { user, isOwner } = useAuth();
   const study = useLoad(() => api.getStudy({ slug }), [slug]);
+  useEffect(() => { logVisit("study"); }, []);
   useEffect(() => {
     if (study.data) document.title = study.data.title + " · Bible Study · Once Lost Media";
     return () => { document.title = "Once Lost Media"; };

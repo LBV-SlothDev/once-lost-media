@@ -30,6 +30,7 @@ function StatsCard() {
       ) : (<>
         {row("People on the site", [s.data.site_today, s.data.site_7, s.data.site_30, s.data.site_all], "All time")}
         {row("People using Backlot", [s.data.backlot_today, s.data.backlot_7, s.data.backlot_30, s.data.backlot_all], "All time")}
+        {row("People reading Bible Study", [s.data.study_today, s.data.study_7, s.data.study_30, s.data.study_all], "All time")}
         <p className="hint">{n(s.data.accounts)} accounts ({n(s.data.accounts_30)} new in 30 days) · {n(s.data.projects)} Backlot projects{s.data.since ? ` · Counting visitors since ${fmtDate(s.data.since + "T12:00:00")}` : " · Visitor counting just started"}. Your own visits aren't counted.</p>
       </>)}
     </section>
