@@ -213,7 +213,7 @@ export function Study({ slug }) {
           {fmtDate(s.created_at)}{s.author_name ? ` · ${s.author_name}` : ""}
           {isOwner && <> · <Link to={`/studio/study/${s.id}`}>Edit</Link></>}
         </p>
-        <ListenAlong rootRef={rootRef} id={s.id} />
+        <ListenAlong rootRef={rootRef} id={s.id} isOwner={isOwner && !DEMO} />
       </header>
       <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(s.body) }} />
       {questions.length > 0 && (
