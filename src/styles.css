@@ -449,3 +449,5 @@ a.about-link:hover { border-color: var(--gold-lo); transform: translateY(-2px); 
 .listening { background: rgba(201, 164, 92, .13); box-shadow: -10px 0 0 rgba(201, 164, 92, .13), 10px 0 0 rgba(201, 164, 92, .13); border-radius: 4px; transition: background .3s; }
 .listen-on { padding-bottom: 110px; }
 @media (max-width: 560px) { .listen-msg { order: 9; flex-basis: 100%; } .listen-bar { bottom: 8px; } }
+.listen-prep { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 0 10px; }
+.listen-prep .hint { font-size: 13px; }
