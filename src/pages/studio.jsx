@@ -1,11 +1,40 @@
 import { useEffect, useRef, useState } from "react";
-import { api, DEMO, slugify, posterFromVideo } from "../lib/backend.js";
+import { api, DEMO, slugify, posterFromVideo, logVisit } from "../lib/backend.js";
 import { useAuth } from "../lib/auth.jsx";
 import { Link, useRouter } from "../lib/router.jsx";
 import { renderMarkdown } from "../lib/markdown.js";
 import { fmtDate, fmtBytes } from "../lib/format.js";
 import { Loading, ErrorNote, useLoad, toast, ConfirmButton, Empty } from "../components/ui.jsx";
 import { mountBacklot } from "../backlot/backlot.js";
+
+/* ---------------- Visitor counts (owner only) ---------------- */
+function StatsCard() {
+  const s = useLoad(() => api.siteStats(), []);
+  const n = (v) => (v == null ? "–" : Number(v).toLocaleString());
+  const row = (label, d, note) => (
+    <div className="stat-row">
+      <h3>{label}</h3>
+      <div className="stat-nums">
+        <div><b>{n(d[0])}</b><span>Today</span></div>
+        <div><b>{n(d[1])}</b><span>7 days</span></div>
+        <div><b>{n(d[2])}</b><span>30 days</span></div>
+        <div><b>{n(d[3])}</b><span>{note}</span></div>
+      </div>
+    </div>
+  );
+  return (
+    <section className="card stats-card">
+      <div className="card-head"><h2>Who's here</h2><span className="hint">Only you can see this</span></div>
+      {s.loading ? <Loading /> : s.error ? (
+        <p className="muted">{/function|site_stats|schema cache/i.test(s.error.message || "") ? "Counts aren't switched on yet. Run supabase/stats.sql in Supabase to start counting." : s.error.message}</p>
+      ) : (<>
+        {row("People on the site", [s.data.site_today, s.data.site_7, s.data.site_30, s.data.site_all], "All time")}
+        {row("People using Backlot", [s.data.backlot_today, s.data.backlot_7, s.data.backlot_30, s.data.backlot_all], "All time")}
+        <p className="hint">{n(s.data.accounts)} accounts ({n(s.data.accounts_30)} new in 30 days) · {n(s.data.projects)} Backlot projects{s.data.since ? ` · Counting visitors since ${fmtDate(s.data.since + "T12:00:00")}` : " · Visitor counting just started"}. Your own visits aren't counted.</p>
+      </>)}
+    </section>
+  );
+}
 
 /* ---------------- Dashboard ---------------- */
 export function Studio() {
@@ -47,6 +76,8 @@ export function Studio() {
           <strong>Demo mode.</strong> Posts and films save in this browser only, and uploaded movies play until the page reloads. Follow the README to connect Supabase and go live.
         </div>
       )}
+
+      {isOwner && <StatsCard />}
 
       <div className="studio-grid">
         {isOwner && (<>
@@ -569,6 +600,7 @@ export function BacklotPicker() {
 
 export function BacklotPage({ ws }) {
   const ref = useRef(null);
+  useEffect(() => { logVisit("backlot"); }, []);
   const { navigate } = useRouter();
   const [busy, setBusy] = useState(false);
   const newProject = async () => {
