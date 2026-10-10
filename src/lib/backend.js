@@ -227,6 +227,12 @@ const supa = {
       return data;
     },
   },
+  async siteStats() {
+    const c = await sb();
+    const { data, error } = await c.rpc("site_stats");
+    if (error) throw friendly(error);
+    return data;
+  },
   async isOwner() {
     const c = await sb();
     const { data, error } = await c.rpc("is_site_owner");
@@ -528,6 +534,7 @@ const authSubs = new Set();
 const fileToDataUrl = (f) => new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(f); });
 
 const demo = {
+  async siteStats() { return { site_today: 0, site_7: 0, site_30: 0, site_all: 0, backlot_today: 0, backlot_7: 0, backlot_30: 0, backlot_all: 0, accounts: 1, accounts_30: 1, projects: 1, since: null }; },
   async getUser() {
     try {
       return JSON.parse(sessionStorage.getItem("olm.demo.user"));
@@ -732,3 +739,28 @@ const demo = {
 };
 
 export const api = DEMO ? demo : supa;
+
+/* Visit counter: one quiet ping per browser per day (site) and per person per day (Backlot).
+   Stores a random browser id only. The totals show in the owner's Studio. */
+export function logVisit(area) {
+  if (DEMO) return;
+  try {
+    const day = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const mark = "olm.v." + area;
+    if (localStorage.getItem(mark) === day) return;
+    let vid = localStorage.getItem("olm.vid");
+    if (!vid) { vid = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); localStorage.setItem("olm.vid", vid); }
+    let token = KEY;
+    try {
+      const ref = new URL(URL_).hostname.split(".")[0];
+      const s = JSON.parse(localStorage.getItem("sb-" + ref + "-auth-token") || "null");
+      if (s && s.access_token && s.expires_at * 1000 > Date.now()) token = s.access_token;
+    } catch {}
+    fetch(URL_ + "/rest/v1/rpc/log_visit", {
+      method: "POST",
+      headers: { apikey: KEY, Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_visitor: vid, p_area: area }),
+      keepalive: true,
+    }).then((r) => { if (r.ok) localStorage.setItem(mark, day); }).catch(() => {});
+  } catch {}
+}
