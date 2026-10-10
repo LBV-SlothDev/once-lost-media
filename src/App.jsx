@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { logVisit } from "./lib/backend.js";
 import { Router, useRouter, match } from "./lib/router.jsx";
 import { AuthProvider } from "./lib/auth.jsx";
 import FilmIntro from "./components/FilmIntro.jsx";
@@ -47,6 +48,7 @@ function Shell() {
   const done = () => { markSeen(); setIntro(false); };
   const backlot = path.startsWith("/studio/backlot/");
   const replay = () => { window.scrollTo(0, 0); setIntro(true); };
+  useEffect(() => { logVisit("site"); }, []);
   return (
     <>
       {intro && <FilmIntro onDone={done} />}
