@@ -438,3 +438,14 @@ a.about-link:hover { border-color: var(--gold-lo); transform: translateY(-2px); 
 .stat-nums span { font-size: 13px; opacity: .7; }
 .stats-card > p.hint { margin: 16px 0 0; }
 @media (max-width: 560px) { .stat-nums { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat-nums b { font-size: 24px; } }
+
+/* Listen Along (Bible Study read-aloud) */
+.listen-btn { margin-top: 14px; }
+.listen-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 60; width: min(880px, calc(100% - 24px)); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(18, 20, 26, .96); border: 1px solid var(--line); border-top: 2px solid var(--gold); border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); backdrop-filter: blur(8px); }
+.listen-msg { flex: 1 1 180px; min-width: 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.listen-bar .input.sm { width: auto; padding: 6px 8px; font-size: 13px; }
+.listen-rate { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.listen-on .prose > *, .listen-on .study-qs li, .listen-on .study-qs h2 { cursor: pointer; }
+.listening { background: rgba(201, 164, 92, .13); box-shadow: -10px 0 0 rgba(201, 164, 92, .13), 10px 0 0 rgba(201, 164, 92, .13); border-radius: 4px; transition: background .3s; }
+.listen-on { padding-bottom: 110px; }
+@media (max-width: 560px) { .listen-msg { order: 9; flex-basis: 100%; } .listen-bar { bottom: 8px; } }
