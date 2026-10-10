@@ -5,6 +5,7 @@ import { Link, useRouter } from "../lib/router.jsx";
 import { renderMarkdown, readingTime } from "../lib/markdown.js";
 import { asset, fmtDate, fmtRuntime } from "../lib/format.js";
 import { FilmCard, PostCard, RunningStrip, Empty, Loading, ErrorNote, useLoad, HumanCheck, toast, ConfirmButton } from "../components/ui.jsx";
+import { ListenAlong } from "../components/ListenAlong.jsx";
 
 export function Home() {
   const { isOwner: user } = useAuth();
@@ -189,6 +190,7 @@ export function BibleStudy() {
 export function Study({ slug }) {
   const { user, isOwner } = useAuth();
   const study = useLoad(() => api.getStudy({ slug }), [slug]);
+  const rootRef = useRef(null);
   useEffect(() => { logVisit("study"); }, []);
   useEffect(() => {
     if (study.data) document.title = study.data.title + " · Bible Study · Once Lost Media";
@@ -200,7 +202,7 @@ export function Study({ slug }) {
   if (!s || (!s.published && !isOwner)) return <NotFound what="study" />;
   const questions = (s.questions || "").split("\n").map((q) => q.replace(/^\s*(\d+[.)]|[-*•])\s*/, "").trim()).filter(Boolean);
   return (
-    <main className="article">
+    <main className="article" ref={rootRef}>
       {s.cover_url && <div className="article-cover"><img src={s.cover_url} alt="" /></div>}
       <header className="article-head">
         {!s.published && <span className="pill draft">Draft</span>}
@@ -211,6 +213,7 @@ export function Study({ slug }) {
           {fmtDate(s.created_at)}{s.author_name ? ` · ${s.author_name}` : ""}
           {isOwner && <> · <Link to={`/studio/study/${s.id}`}>Edit</Link></>}
         </p>
+        <ListenAlong rootRef={rootRef} id={s.id} />
       </header>
       <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(s.body) }} />
       {questions.length > 0 && (
