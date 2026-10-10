@@ -135,3 +135,43 @@ export function deviceVoice() {
   for (const r of pref) { const v = vs.find((x) => r.test(x.name) || r.test(x.lang)); if (v) return v; }
   return vs[0] || null;
 }
+
+/* ---------- Ready-made audio (Bible studies) ----------
+   The owner prepares a study once; listeners then play the saved MP3s right away
+   instead of downloading the voice. Each piece is named by a fingerprint of its text,
+   so edited paragraphs simply fall back to live reading until prepared again. */
+export function textKey(s) {
+  let h = 0x811c9dc5;
+  const t = String(s || "");
+  for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, "0") + t.length.toString(36);
+}
+
+let lameP = null;
+function loadLame() {
+  if (window.lamejs) return Promise.resolve(window.lamejs);
+  return lameP || (lameP = new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js";
+    s.onload = () => (window.lamejs ? res(window.lamejs) : rej(new Error("MP3 encoder didn't load.")));
+    s.onerror = () => { lameP = null; rej(new Error("MP3 encoder didn't load.")); };
+    document.head.appendChild(s);
+  }));
+}
+
+/* WAV (16-bit mono, as the voice makes it) -> MP3 at 64 kbps */
+export async function wavToMp3(wav) {
+  const lame = await loadLame();
+  const buf = await wav.arrayBuffer();
+  const sr = new DataView(buf).getUint32(24, true) || 24000;
+  const pcm = new Int16Array(buf, 44, Math.floor((buf.byteLength - 44) / 2));
+  const enc = new lame.Mp3Encoder(1, sr, 64);
+  const out = [];
+  for (let i = 0; i < pcm.length; i += 1152) {
+    const b = enc.encodeBuffer(pcm.subarray(i, i + 1152));
+    if (b.length) out.push(new Uint8Array(b));
+  }
+  const end = enc.flush();
+  if (end.length) out.push(new Uint8Array(end));
+  return new Blob(out, { type: "audio/mpeg" });
+}

@@ -360,6 +360,13 @@ const supa = {
     if (f.video_path) await c.storage.from("films").remove([f.video_path]);
   },
 
+  /* Ready-made Bible Study audio (public bucket "study-audio"; only the owner can write) */
+  async uploadStudyAudio(path, blob, contentType = "audio/mpeg") {
+    const c = await sb();
+    const cache = contentType === "application/json" ? "30" : "31536000";
+    const { error } = await c.storage.from("study-audio").upload(path, blob, { cacheControl: cache, contentType, upsert: true });
+    if (error) throw friendly(error);
+  },
   async uploadImage(file, folder = "images") {
     const c = await sb();
     const f = await shrinkImage(file);
@@ -739,6 +746,9 @@ const demo = {
 };
 
 export const api = DEMO ? demo : supa;
+
+/* Public address of a ready-made Bible Study audio file */
+export const studyAudioUrl = (path) => (DEMO ? "" : URL_ + "/storage/v1/object/public/study-audio/" + path);
 
 /* Visit counter: one quiet ping per browser per day (site) and per person per day (Backlot).
    Stores a random browser id only. The totals show in the owner's Studio. */
