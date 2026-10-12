@@ -242,7 +242,7 @@ export function createDictation(opts = {}) {
 }
 
 /* Backlot: a floating "Talk to type" button that types into whatever box you last clicked in */
-export function attachDictation(root, { toast } = {}) {
+export function attachDictation(root, { toast, command, fix } = {}) {
   if (!DICTATE_OK || !root) return () => {};
   let last = null, savedRange = null;
   const remember = (e) => { if (isField(e.target) && root.contains(e.target)) last = e.target; };
@@ -255,7 +255,7 @@ export function attachDictation(root, { toast } = {}) {
 
   const wrap = document.createElement("div");
   wrap.className = "talk-wrap";
-  wrap.innerHTML = '<div class="talk-bubble" hidden></div><button type="button" class="talk-btn" aria-pressed="false" title="Talk to type: click in a box, press this, and speak. Say &quot;period&quot; or &quot;comma&quot; for punctuation."><span class="talk-dot" aria-hidden="true"></span><span class="talk-label">Talk to type</span></button>';
+  wrap.innerHTML = '<div class="talk-bubble" hidden></div><button type="button" class="talk-btn" aria-pressed="false" title="Talk to type: click in a box, press this, and speak. In the script, say &quot;Interior Velvet Room night&quot; for a scene heading or &quot;Nathan says...&quot; for a line."><span class="talk-dot" aria-hidden="true"></span><span class="talk-label">Talk to type</span></button>';
   root.appendChild(wrap);
   const btn = wrap.querySelector(".talk-btn"), bubble = wrap.querySelector(".talk-bubble"), label = wrap.querySelector(".talk-label");
 
@@ -268,7 +268,8 @@ export function attachDictation(root, { toast } = {}) {
         el.focus();
         if (savedRange) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(savedRange); }
       }
-      insertText(el, t);
+      if (command && command(t, el)) { savedRange = null; return; }
+      insertText(el, fix ? fix(t, el) : t);
       keepRange();
     },
     onInterim: (t) => { bubble.hidden = !d.active; bubble.textContent = t ? t : "Listening… speak now"; },
