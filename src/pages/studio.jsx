@@ -6,6 +6,7 @@ import { renderMarkdown } from "../lib/markdown.js";
 import { fmtDate, fmtBytes } from "../lib/format.js";
 import { Loading, ErrorNote, useLoad, toast, ConfirmButton, Empty } from "../components/ui.jsx";
 import { mountBacklot } from "../backlot/backlot.js";
+import { TalkButton } from "../components/TalkButton.jsx";
 
 /* ---------------- Visitor counts (owner only) ---------------- */
 function StatsCard() {
@@ -434,13 +435,14 @@ export function PostEditor({ id, kind = "post" }) {
             <button onClick={() => wrap("[", "](https://)", "link text")} title="Link">Link</button>
             <button onClick={() => imgInput.current.click()} title="Insert image">Image</button>
             <button onClick={() => insertAtCursor('\n<iframe src="https://www.youtube.com/embed/VIDEO_ID"></iframe>\n')} title="Embed a YouTube or Vimeo video">Embed</button>
+            <TalkButton targetId="post-body" className="md-talk" />
             <input ref={imgInput} type="file" accept="image/*" hidden onChange={(e) => { uploadInline(e.target.files[0]); e.target.value = ""; }} />
           </div>
         )}
       </div>
       <div className={"md-panes " + view}>
         {view !== "preview" && (
-          <textarea ref={body} className="md-input" value={post.body} onChange={(e) => set("body", e.target.value)} onPaste={(e) => { const f = [...e.clipboardData.files].find((x) => x.type.startsWith("image/")); if (f) { e.preventDefault(); uploadInline(f); } }}
+          <textarea id="post-body" ref={body} className="md-input" value={post.body} onChange={(e) => set("body", e.target.value)} onPaste={(e) => { const f = [...e.clipboardData.files].find((x) => x.type.startsWith("image/")); if (f) { e.preventDefault(); uploadInline(f); } }}
             placeholder={kind === "study" ? "Write the study here.\n\nQuote the passage with > at the start of a line, use ## for headings, **bold** and _italic_." : "Write your entry here.\n\nUse ## for a heading, **bold**, _italic_, and paste images straight in."} aria-label="Entry text" />
         )}
         {view !== "write" && <div className="md-preview prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(post.body) || "<p class='muted'>Nothing to preview yet.</p>" }} />}

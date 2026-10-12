@@ -6,6 +6,7 @@ import { renderMarkdown, readingTime } from "../lib/markdown.js";
 import { asset, fmtDate, fmtRuntime } from "../lib/format.js";
 import { FilmCard, PostCard, RunningStrip, Empty, Loading, ErrorNote, useLoad, HumanCheck, toast, ConfirmButton } from "../components/ui.jsx";
 import { ListenAlong } from "../components/ListenAlong.jsx";
+import { TalkButton } from "../components/TalkButton.jsx";
 
 export function Home() {
   const { isOwner: user } = useAuth();
@@ -283,6 +284,7 @@ function Comments({ study, user, isOwner }) {
           <label htmlFor="c-text" className="sr">Your comment</label>
           <textarea id="c-text" className="input" rows="4" maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} placeholder="Share what stood out to you, a question, or a prayer request." />
           <div className="c-form-foot">
+            <TalkButton targetId="c-text" />
             <span className="hint">Be kind. Comments show your name. {text.length > 1800 ? `${2000 - text.length} characters left.` : ""}</span>
             <button className="btn gold" disabled={busy || !text.trim()}>{busy ? "Posting…" : "Post comment"}</button>
           </div>
