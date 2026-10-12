@@ -451,3 +451,14 @@ a.about-link:hover { border-color: var(--gold-lo); transform: translateY(-2px); 
 @media (max-width: 560px) { .listen-msg { order: 9; flex-basis: 100%; } .listen-bar { bottom: 8px; } }
 .listen-prep { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 0 10px; }
 .listen-prep .hint { font-size: 13px; }
+
+/* Talk to type (voice typing) */
+.talk-inline { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.talk-inline-btn { gap: 7px; }
+.talk-inline-btn .talk-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); display: inline-block; }
+.talk-inline-btn.on { border-color: #f08a80; color: #f08a80; }
+.talk-inline-btn.on .talk-dot { background: #f08a80; animation: talkpulse 1s ease-in-out infinite; }
+.talk-heard { max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-tools .talk-inline-btn { font: inherit; }
+@keyframes talkpulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .talk-inline-btn.on .talk-dot { animation: none; } }
