@@ -1,5 +1,5 @@
 import "./backlot.css";
-import { attachDictation } from "../lib/dictate.js";
+import { attachDictation, tidy } from "../lib/dictate.js";
 
 const MARKUP = "<div class=\"bar\">\n  <div class=\"bar-in\">\n    <div class=\"brand\"><i aria-hidden=\"true\"></i>BACKLOT</div>\n    <input id=\"ptitle\" class=\"ptitle\" placeholder=\"Untitled project\" aria-label=\"Project title\">\n    <div class=\"tabs\" role=\"tablist\">\n      <button class=\"tab\" role=\"tab\" data-view=\"script\" aria-selected=\"true\">Script</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"chars\" aria-selected=\"false\">Characters</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"board\" aria-selected=\"false\">Storyboard</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"calls\" aria-selected=\"false\">Call sheets</button>\n    </div>\n    <div class=\"spacer\"></div>\n    <div class=\"people\" id=\"people\" aria-label=\"People here now\"></div>\n    <div class=\"status\" id=\"status\"><span class=\"dot\"></span><span id=\"statusTxt\">Connecting\u2026</span></div>\n  </div>\n</div>\n<div class=\"banner\" id=\"banner\" hidden></div>\n\n<main>\n  <!-- SCRIPT -->\n  <section class=\"view\" id=\"v-script\">\n    <div class=\"script\">\n      <aside class=\"nav\">\n        <div class=\"nav-h\"><span class=\"eyebrow\">Scenes</span><button class=\"btn ghost\" id=\"addScene\" title=\"Add a scene at the end\">+ Scene</button></div>\n        <div class=\"stats\" id=\"stats\"></div>\n        <ol id=\"navList\"></ol>\n      </aside>\n      <div style=\"min-width:0\">\n        <div class=\"tools\">\n          <div class=\"types\" id=\"types\"></div>\n          <select class=\"field\" id=\"rev\" style=\"width:auto\" aria-label=\"Revision color\"></select>\n          <button class=\"btn\" id=\"importBtn\">Import</button>\n          <button class=\"btn primary\" id=\"readBtn\" title=\"Read the script aloud with a voice for each character\">▶ Table read</button>\n          <button class=\"btn\" id=\"pdfBtn\">Print / PDF</button>\n          <button class=\"btn\" id=\"historyBtn\">History</button>\n          <button class=\"btn\" id=\"exportBtn\">Export .fountain</button>\n          <button class=\"btn danger\" id=\"clearScript\">Clear script</button>\n          <input type=\"file\" id=\"importFile\" accept=\".fountain,.txt,.md,text/plain\" hidden>\n        </div>\n        <p class=\"hint\" style=\"margin:-4px 0 12px\">Enter starts the next element \u00b7 Tab changes element type \u00b7 paste or import a Fountain script to bring in existing pages.</p>\n        <div class=\"page-wrap\">\n          <div class=\"page\" id=\"page\">\n            <div class=\"revband\"></div><div class=\"revlabel\" id=\"revlabel\"></div>\n            <div id=\"scenes\"></div>\n            <div class=\"empty\" id=\"scriptEmpty\" hidden>\n              <h2>FADE IN:</h2>\n              <p style=\"margin:0\">The script is empty. Start the first scene, or import a Fountain script you already have.</p>\n              <div class=\"row\"><button class=\"btn primary\" id=\"startScript\">Start writing</button><button class=\"btn\" id=\"emptyImport\">Import a script</button></div>\n            </div>\n          </div>\n        </div>\n      </div>\n    </div>\n  </section>\n\n  <!-- CHARACTERS -->\n  <section class=\"view\" id=\"v-chars\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <input class=\"field\" id=\"chSearch\" placeholder=\"Find a character or actor\" aria-label=\"Find a character\" style=\"margin-bottom:8px\">\n        <div class=\"days\" id=\"chList\"></div>\n        <form id=\"chAdd\" class=\"chadd\"><input class=\"field\" id=\"chNew\" placeholder=\"Add a character\" aria-label=\"New character name\"><button class=\"btn primary\">Add</button></form>\n        <p class=\"hint\" style=\"margin:8px 2px 0\">Characters who speak in the script are added automatically.</p>\n      </aside>\n      <div id=\"chWrap\" style=\"min-width:0\"></div>\n      <input type=\"file\" id=\"chFile\" accept=\"image/*\" hidden>\n    </div>\n  </section>\n\n  <!-- STORYBOARD -->\n  <section class=\"view\" id=\"v-board\" hidden>\n    <div class=\"sb-tools\">\n      <select class=\"field\" id=\"sbFilter\" aria-label=\"Show scene\"></select>\n      <span class=\"hint\" id=\"sbCount\"></span>\n      <div class=\"spacer\"></div>\n    </div>\n    <div id=\"sbBody\"></div>\n  </section>\n\n  <!-- CALL SHEETS -->\n  <section class=\"view\" id=\"v-calls\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <div class=\"days\" id=\"days\"></div>\n        <button class=\"btn primary\" id=\"newSheet\" style=\"width:100%;justify-content:center;margin-top:8px\">+ New shoot day</button>\n      </aside>\n      <div id=\"sheetWrap\" style=\"min-width:0\"></div>\n    </div>\n  </section>\n</main>\n\n<!-- panel editor -->\n<div class=\"ov\" id=\"pov\" hidden>\n  <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"pTitle\">\n    <div class=\"mhead\"><h2 id=\"pTitle\">Shot</h2><button class=\"x\" id=\"pClose\" aria-label=\"Close\">\u2715</button></div>\n    <div class=\"ed\">\n      <div>\n        <div class=\"canvas-box\"><canvas id=\"cv\" width=\"960\" height=\"540\"></canvas><div class=\"thirds\" id=\"thirds\" hidden></div></div>\n        <div class=\"ctools\">\n          <button class=\"btn on\" data-tool=\"pen\">Pencil</button>\n          <button class=\"btn\" data-tool=\"marker\">Marker</button>\n          <button class=\"btn\" data-tool=\"eraser\">Eraser</button>\n          <select class=\"field\" id=\"pSize\" style=\"width:auto\" aria-label=\"Brush size\"><option value=\"2\">Fine</option><option value=\"4\" selected>Medium</option><option value=\"9\">Bold</option><option value=\"20\">Wide</option></select>\n          <button class=\"btn\" id=\"pUndo\">Undo</button>\n          <button class=\"btn\" id=\"pClear\">Clear</button>\n          <button class=\"btn\" id=\"pThirds\">Thirds</button>\n          <button class=\"btn\" id=\"pUpload\">Upload image</button>\n          <input type=\"file\" id=\"pFile\" accept=\"image/*\" hidden>\n        </div>\n      </div>\n      <div class=\"form\">\n        <label class=\"full\">Scene<select class=\"field\" id=\"pScene\"></select></label>\n        <label>Shot size<select class=\"field\" id=\"pShot\"></select></label>\n        <label>Angle<select class=\"field\" id=\"pAngle\"></select></label>\n        <label>Movement<select class=\"field\" id=\"pMove\"></select></label>\n        <label>Lens (mm)<input class=\"field\" id=\"pLens\" inputmode=\"numeric\" placeholder=\"35\"></label>\n        <label>Duration (sec)<input class=\"field\" id=\"pDur\" inputmode=\"decimal\" placeholder=\"4\"></label>\n        <label>Setup<input class=\"field\" id=\"pSetup\" placeholder=\"A cam\"></label>\n        <label class=\"full\">Action / description<textarea class=\"field\" id=\"pDesc\" rows=\"3\" placeholder=\"What happens in frame\"></textarea></label>\n        <label class=\"full\">Dialogue / sound<textarea class=\"field\" id=\"pAudio\" rows=\"2\" placeholder=\"Lines or SFX over this shot\"></textarea></label>\n      </div>\n    </div>\n    <div class=\"mfoot\">\n      <button class=\"btn danger\" id=\"pDelete\">Delete shot</button>\n      <div style=\"display:flex;gap:8px\"><button class=\"btn\" id=\"pCancel\">Cancel</button><button class=\"btn primary\" id=\"pSave\">Save shot</button></div>\n    </div>\n  </div>\n</div>\n\n<!-- confirm -->\n<div class=\"ov\" id=\"cov\" hidden>\n  <div class=\"modal sm\" role=\"alertdialog\" aria-modal=\"true\">\n    <p id=\"cMsg\" style=\"margin:4px 0 16px;font-size:15px\"></p>\n    <div class=\"mfoot\" style=\"justify-content:flex-end\"><button class=\"btn\" id=\"cNo\">Cancel</button><button class=\"btn primary\" id=\"cYes\">Delete</button></div>\n  </div>\n</div>\n<div class=\"reader\" id=\"reader\" hidden role=\"region\" aria-label=\"Table read\"><button class=\"btn primary\" id=\"rdPlay\">▶ Play</button><button class=\"btn\" id=\"rdPrev\" aria-label=\"Previous line\">⏮</button><button class=\"btn\" id=\"rdNext\" aria-label=\"Next line\">⏭</button><span class=\"rd-now\" id=\"rdNow\" aria-live=\"polite\"></span><select class=\"field\" id=\"rdNarr\" aria-label=\"Narrator voice\"></select><label class=\"rd-opt\">Speed<input type=\"range\" id=\"rdRate\" min=\"0.6\" max=\"1.6\" step=\"0.1\" value=\"1\"></label><label class=\"rd-opt\"><input type=\"checkbox\" id=\"rdHead\" checked> Headings</label><label class=\"rd-opt\"><input type=\"checkbox\" id=\"rdAction\" checked> Action</label><button class=\"x\" id=\"rdClose\" aria-label=\"Stop reading\">✕</button></div>\n<div class=\"toast\" id=\"toast\" hidden></div>";
 
@@ -314,6 +314,84 @@ function insertParsed(id, i, parsed){
   if(sc.blocks[0].t!=="scene") sc.blocks.unshift({t:"scene",x:""});
   const at=Math.min(sc.blocks.length-1, sc.blocks.indexOf(parsed[parsed.length-1]));
   regroup(id, at, null);
+}
+
+/* ---------- Talk to type: spoken screenplay commands ----------
+   "Interior Velvet Room night"  -> INT. VELVET ROOM - NIGHT (new scene)
+   "Nathan says I'll bring him home" -> NATHAN + dialogue (known names are matched even if misheard)
+   "Gina softly says hi" -> GINA, (softly), Hi
+   "Action he walks away", "Parenthetical beat", "Cut to", "Fade out", "New character Hector" */
+const V_TIMES=["moments later","later that night","later that day","same time","continuous","morning","afternoon","evening","sunrise","sunset","night","dawn","dusk","later","day"];
+const V_TRANS={"cut to":"CUT TO:","smash cut to":"SMASH CUT TO:","smash cut":"SMASH CUT TO:","match cut to":"MATCH CUT TO:","dissolve to":"DISSOLVE TO:","fade in":"FADE IN:","fade out":"FADE OUT.","fade to black":"FADE TO BLACK.","back to scene":"BACK TO SCENE"};
+const V_VERB={says:"",said:"",asks:"",replies:"",answers:"",whispers:"whispering",yells:"yelling",shouts:"shouting",screams:"screaming",laughs:"laughing",cries:"crying"};
+function vNames(){ return [...new Set([...Object.keys(castNumbers()),...Object.values(S.chars).map(c=>c&&c.name).filter(Boolean)].map(n=>cleanChar(n)).filter(Boolean))]; }
+function vDist(a,b){ if(a===b) return 0; if(Math.abs(a.length-b.length)>1) return 2; const m=a.length,n=b.length; let prev=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){ const cur=[i]; for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1)); prev=cur; } return prev[n]; }
+const vWordOk=(heard,name)=>heard===name||(name.length>=4&&vDist(heard,name)<=1);
+const vTitle=w=>w.charAt(0)+w.slice(1).toLowerCase();
+/* the longest known name at the start of the words, e.g. "miss loraine says" -> MISS LORRAINE */
+function vNameAt(words){
+  let best=null;
+  vNames().forEach(n=>{ const nw=n.toLowerCase().split(/\s+/); if(nw.length>words.length) return;
+    if(nw.every((w,k)=>vWordOk(words[k],w))&&(!best||nw.length>best.len)) best={name:n,len:nw.length}; });
+  return best;
+}
+/* spell known names the way the script does */
+function vFixNames(text){
+  const map={}; vNames().forEach(n=>n.split(/\s+/).forEach(w=>{ if(w.length>=3) map[w.toLowerCase()]=vTitle(w); }));
+  const keys=Object.keys(map);
+  return String(text).replace(/[A-Za-z][A-Za-z'’]+/g,w=>{ const l=w.toLowerCase(); if(map[l]) return /^[A-Z]/.test(w)?map[l]:w;
+    if(/^[A-Z]/.test(w)&&l.length>=5){ const k=keys.find(k=>k.length>=5&&vDist(l,k)===1); if(k) return map[k]; } return w; });
+}
+function vParse(raw){
+  const clean=String(raw||"").trim(); if(!clean) return null;
+  const low=clean.toLowerCase().replace(/[.!?]+$/,"").trim();
+  const plain=low.replace(/[.,:;!?]/g," ").replace(/\s+/g," ").trim();
+  const words=plain.split(" ");
+  if(V_TRANS[plain]) return [{t:"transition",x:V_TRANS[plain]}];
+  let m=plain.match(/^(?:scene heading |new scene )?(interior exterior|int ext|interior|exterior|inside|outside|int|ext|i e)\s+(.+)$/);
+  if(m&&!/^(?:the|a)$/.test(m[2])){
+    const pre=/^(interior exterior|int ext|i e)$/.test(m[1])?"INT./EXT.":/^(interior|inside|int)$/.test(m[1])?"INT.":"EXT.";
+    const sep=low.replace(/\b(dash|hyphen)\b/g,"|").replace(/\s*[,.;:\u2013\u2014-]+\s*/g,"|").replace(/^(?:scene heading |new scene )?(interior exterior|int ext|interior|exterior|inside|outside|int|ext|i e)[\s|]+/,"");
+    const parts=sep.split("|").map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean); let time="";
+    const last=parts[parts.length-1]||"";
+    if(parts.length>1&&V_TIMES.includes(last)){ time=last; parts.pop(); }
+    else for(const t of V_TIMES){ if(last!==t&&last.endsWith(" "+t)){ time=t; parts[parts.length-1]=last.slice(0,-t.length).trim(); break; } }
+    const loc=parts.map(x=>vFixNames(x).toUpperCase()).join(" - ");
+    return [{t:"scene",x:(pre+" "+loc+(time?" - "+time.toUpperCase():"")).trim()}];
+  }
+  if((m=clean.match(/^(?:action|description)[\s,:.]+(.+)$/i))) return [{t:"action",x:tidy(vFixNames(m[1]),"",false)}];
+  if((m=plain.match(/^(?:parenthetical|paren)\s+(.+)$/))) return [{t:"paren",x:"("+m[1]+")"}];
+  if((m=plain.match(/^(?:new character|character)\s+(.+?)(?:\s+(says|said|asks|replies|answers|whispers|yells|shouts|screams|laughs|cries)\b\s*(.*))?$/))){
+    const name=m[1].toUpperCase(); const out=[{t:"character",x:name}];
+    if(V_VERB[m[2]]) out.push({t:"paren",x:"("+V_VERB[m[2]]+")"});
+    const said=m[2]?clean.replace(new RegExp("^.*?\\b"+m[2]+"\\b[\\s,:]*","i"),""):"";
+    out.push({t:"dialogue",x:said?tidy(vFixNames(said),"",false):""});
+    return out;
+  }
+  const at=vNameAt(words);
+  if(at){
+    const after=words.slice(at.len); const vi=after.findIndex(w=>w in V_VERB);
+    const colon=/^[^:]{1,40}:/.test(clean) && after.length;
+    if(vi>=0&&vi<=2||colon){
+      const mood=vi>0?after.slice(0,vi).join(" "):""; const verb=vi>=0?after[vi]:"";
+      const out=[{t:"character",x:at.name}];
+      const paren=mood||V_VERB[verb]||"";
+      if(paren) out.push({t:"paren",x:"("+paren+")"});
+      const said=colon&&vi<0?clean.replace(/^[^:]*:\s*/,""):clean.replace(new RegExp("^.*?\\b"+verb+"\\b[\\s,:]*","i"),"");
+      out.push({t:"dialogue",x:said?tidy(vFixNames(said),"",false):""});
+      return out;
+    }
+  }
+  return null;
+}
+function voiceScript(raw, el){
+  const blk=el&&el.closest&&el.closest("#scenes .blk"); if(!blk||!S.canWrite) return false;
+  const sec=blk.closest("section.scene"), id=sec&&sec.dataset.id, sc=id&&S.map[id]; if(!sc) return false;
+  const parsed=vParse(raw); if(!parsed) return false;
+  const i=+blk.dataset.i; sc.blocks[i].x=blk.textContent;
+  insertParsed(id,i,parsed);
+  return true;
 }
 
 function onKey(e){
@@ -1690,7 +1768,7 @@ async function boot(){
     announce();
   }
 }
-const unTalk = attachDictation(root, { toast });
+const unTalk = attachDictation(root, { toast, command: voiceScript, fix: (t, el) => (el && el.closest && el.closest("#scenes .blk") ? vFixNames(t) : t) });
 boot();
 return ()=>{ dead=true; try{ unTalk(); }catch(e){} try{ R.tok++; R.playing=false; if(TTS) TTS.cancel(); hdStop(); KOKO.stop(); HD.cache.forEach(p=>p.then(u=>URL.revokeObjectURL(u)).catch(()=>{})); }catch(e){} [...S.dirty].forEach(id=>{ clearTimeout(S.timers[id]); flushScene(id); }); unsubs.forEach(u=>{ try{u&&u()}catch(e){} }); };
 }
