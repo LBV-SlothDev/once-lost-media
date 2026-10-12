@@ -274,3 +274,16 @@
 .backlot .cast-engine .hint{flex-basis:100%;margin:0}
 .backlot .cast-engine .warn{color:var(--warn)}
 .backlot .hdtag{font-style:normal;font-size:10px;letter-spacing:.08em;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}
+
+/* Talk to type (voice typing) */
+.backlot .talk-wrap{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:56;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
+.backlot:has(.reader:not([hidden])) .talk-wrap{bottom:calc(132px + env(safe-area-inset-bottom,0px))}
+.backlot .talk-btn{pointer-events:auto;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--accent);background:var(--surface);color:var(--ink);border-radius:999px;padding:9px 14px;font-weight:600;font-size:13px;box-shadow:var(--shadow);cursor:pointer}
+.backlot .talk-btn:hover{background:var(--accent-soft)}
+.backlot .talk-btn.on{background:var(--warn);border-color:var(--warn);color:#1a0b09}
+.backlot .talk-dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.backlot .talk-btn.on .talk-dot{background:#1a0b09;animation:talkpulse 1s ease-in-out infinite}
+.backlot .talk-bubble{pointer-events:none;max-width:min(360px,calc(100vw - 32px));background:var(--paper);border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:8px 12px;font-size:13px;box-shadow:var(--shadow)}
+.backlot .talk-bubble[hidden]{display:none}
+@keyframes talkpulse{50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){.backlot .talk-btn.on .talk-dot{animation:none}}
