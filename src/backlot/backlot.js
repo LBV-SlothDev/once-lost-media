@@ -117,6 +117,7 @@ function parseFountain(text){
     const l=lines[i].trim(); const next=(lines[i+1]||"").trim(); const last=out[out.length-1];
     if(!l){ prevBlank=true; inDia=false; continue; }
     if(/^(={3,}|\[\[.*\]\]|\/\*|\*\/|#|=)/.test(l)) { prevBlank=false; continue; }
+    if(/^![^!]/.test(l)){ if(!prevBlank&&last&&last.t==="action") last.x+="\n"+l.slice(1); else out.push({t:"action",x:l.slice(1)}); prevBlank=false; inDia=false; continue; }
     const upper = l===l.toUpperCase() && /[A-Z]/.test(l);
     if(prevBlank && (/^(INT|EXT|EST|INT\.?\/EXT|EXT\.?\/INT|I\/E)[.\s]/i.test(l) || /^\.[A-Za-z0-9]/.test(l))) out.push({t:"scene",x:l.replace(/^\./,"")});
     else if(prevBlank && ((upper && /TO:$/.test(l)) || (/^>/.test(l) && !/<$/.test(l)) || /^(FADE OUT\.?|FADE IN:|CUT TO BLACK\.?)$/.test(l))) out.push({t:"transition",x:l.replace(/^>\s*/,"")});
@@ -143,6 +144,7 @@ function toFountain(){
     else if(b.t==="paren") o.push(/^\(/.test(x)?x:"("+x+")");
     else if(b.t==="transition"){ const t=x.toUpperCase(); o.push(/TO:$/.test(t)?t:"> "+t); }
     else if(b.t==="shot") o.push(x.toUpperCase());
+    else if(b.t==="action") o.push(x.split("\n").map((ln,j)=>(j===0&&(/^(INT|EXT|EST|I\/E)[.\s]/i.test(ln)||/^[.!@#=~>]/.test(ln)||(ln===ln.toUpperCase()&&/[A-Z]/.test(ln)&&/TO:$/.test(ln))))?"!"+ln:ln).join("\n"));
     else o.push(x);
   }));
   return o.join("\n").replace(/\n{3,}/g,"\n\n").trim()+"\n";
@@ -159,8 +161,12 @@ function setStatusDirty(){ if(S.db){ $("#status").className="status saving"; $("
 function flushScene(id){
   const sc=S.map[id]; S.dirty.delete(id);
   if(!sc){ setStatus(); return; }
-  const body={order:sc.order, blocks:sc.blocks.map(b=>({t:b.t,x:b.x})), by:S.myId||null, at:Date.now()};
-  write("scenes/"+id, r=>r.set(body));
+  const body={blocks:sc.blocks.map(b=>({t:b.t,x:b.x})), by:S.myId||null, at:Date.now()};
+  const known=S.seen&&S.seen.has(id), od=!!sc._od; sc._od=false;
+  // a scene the server already has gets a patch (so a teammate's move or delete isn't undone); new scenes are written whole
+  write("scenes/"+id, r=>known
+    ? r.update(od?{order:sc.order,...body}:body).catch(e=>{ if(e&&e.code==="invalid_argument") return; throw e; })
+    : r.set({order:sc.order,...body}));
   if(!S.db) setStatus();
   S.changedSinceVersion=true; maybeAutoVersion();
 }
@@ -168,11 +174,12 @@ function busy(id){ return S.dirty.has(id) || (S.inflight["scenes/"+id]||0)>0; }
 
 function onScenes(snap){
   const next=[];
+  S.seen=new Set(snap.docs.map(d=>d.id));
   snap.docs.forEach(d=>{
     if(S.gone.has(d.id)) return;
     const local=S.map[d.id];
-    if(local && busy(d.id)) { next.push(local); return; }
     const data=d.data()||{};
+    if(local && busy(d.id)) { if(!local._od&&typeof data.order==="number") local.order=data.order; next.push(local); return; }
     let blocks=Array.isArray(data.blocks)?data.blocks.map(b=>({t:TYPES.includes(b&&b.t)?b.t:"action",x:String((b&&b.x)??"")})):[];
     if(!blocks.length||blocks[0].t!=="scene") blocks.unshift({t:"scene",x:""});
     next.push({id:d.id, order:typeof data.order==="number"?data.order:0, blocks});
@@ -310,6 +317,7 @@ function setType(t){
 function insertParsed(id, i, parsed){
   const sc=S.map[id]; const cur=sc.blocks[i];
   if(cur && !cur.x.trim() && !(i===0 && parsed[0].t!=="scene")) sc.blocks.splice(i,1,...parsed);
+  else if(i===0 && parsed[0].t==="scene") sc.blocks.push(...parsed);
   else sc.blocks.splice(i+1,0,...parsed);
   if(sc.blocks[0].t!=="scene") sc.blocks.unshift({t:"scene",x:""});
   const at=Math.min(sc.blocks.length-1, sc.blocks.indexOf(parsed[parsed.length-1]));
@@ -323,7 +331,7 @@ function insertParsed(id, i, parsed){
    "Action he walks away", "Parenthetical beat", "Cut to", "Fade out", "New character Hector" */
 const V_TIMES=["moments later","later that night","later that day","same time","continuous","morning","afternoon","evening","sunrise","sunset","night","dawn","dusk","later","day"];
 const V_TRANS={"cut to":"CUT TO:","smash cut to":"SMASH CUT TO:","smash cut":"SMASH CUT TO:","match cut to":"MATCH CUT TO:","dissolve to":"DISSOLVE TO:","fade in":"FADE IN:","fade out":"FADE OUT.","fade to black":"FADE TO BLACK.","back to scene":"BACK TO SCENE"};
-const V_VERB={says:"",said:"",asks:"",replies:"",answers:"",whispers:"whispering",yells:"yelling",shouts:"shouting",screams:"screaming",laughs:"laughing",cries:"crying"};
+const V_VERB={says:"",said:"",asks:"",replies:"",answers:"",whispers:"whispering",yells:"yelling",shouts:"shouting",screams:"screaming"};
 function vNames(){ return [...new Set([...Object.keys(castNumbers()),...Object.values(S.chars).map(c=>c&&c.name).filter(Boolean)].map(n=>cleanChar(n)).filter(Boolean))]; }
 function vDist(a,b){ if(a===b) return 0; if(Math.abs(a.length-b.length)>1) return 2; const m=a.length,n=b.length; let prev=Array.from({length:n+1},(_,j)=>j);
   for(let i=1;i<=m;i++){ const cur=[i]; for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1)); prev=cur; } return prev[n]; }
@@ -343,14 +351,15 @@ function vFixNames(text){
   return String(text).replace(/[A-Za-z][A-Za-z'’]+/g,w=>{ const l=w.toLowerCase(); if(map[l]) return /^[A-Z]/.test(w)?map[l]:w;
     if(/^[A-Z]/.test(w)&&l.length>=5){ const k=keys.find(k=>k.length>=5&&vDist(l,k)===1); if(k) return map[k]; } return w; });
 }
-function vParse(raw){
+function vParse(raw, ctx={}){
   const clean=String(raw||"").trim(); if(!clean) return null;
   const low=clean.toLowerCase().replace(/[.!?]+$/,"").trim();
   const plain=low.replace(/[.,:;!?]/g," ").replace(/\s+/g," ").trim();
   const words=plain.split(" ");
   if(V_TRANS[plain]) return [{t:"transition",x:V_TRANS[plain]}];
   let m=plain.match(/^(?:scene heading |new scene )?(interior exterior|int ext|interior|exterior|inside|outside|int|ext|i e)\s+(.+)$/);
-  if(m&&!/^(?:the|a)$/.test(m[2])){
+  const asked=/^(?:scene heading|new scene)\b/.test(plain);
+  if(m&&!/^(?:the|a)$/.test(m[2])&&(asked||!/^(inside|outside)$/.test(m[1]))){
     const pre=/^(interior exterior|int ext|i e)$/.test(m[1])?"INT./EXT.":/^(interior|inside|int)$/.test(m[1])?"INT.":"EXT.";
     const sep=low.replace(/\b(dash|hyphen)\b/g,"|").replace(/\s*[,.;:\u2013\u2014-]+\s*/g,"|").replace(/^(?:scene heading |new scene )?(interior exterior|int ext|interior|exterior|inside|outside|int|ext|i e)[\s|]+/,"");
     const parts=sep.split("|").map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean); let time="";
@@ -362,18 +371,19 @@ function vParse(raw){
   }
   if((m=clean.match(/^(?:action|description)[\s,:.]+(.+)$/i))) return [{t:"action",x:tidy(vFixNames(m[1]),"",false)}];
   if((m=plain.match(/^(?:parenthetical|paren)\s+(.+)$/))) return [{t:"paren",x:"("+m[1]+")"}];
-  if((m=plain.match(/^(?:new character|character)\s+(.+?)(?:\s+(says|said|asks|replies|answers|whispers|yells|shouts|screams|laughs|cries)\b\s*(.*))?$/))){
+  if((m=plain.match(/^(?:new character|character)\s+(.+?)(?:\s+(says|said|asks|replies|answers|whispers|yells|shouts|screams)\b\s*(.*))?$/))){
     const name=m[1].toUpperCase(); const out=[{t:"character",x:name}];
     if(V_VERB[m[2]]) out.push({t:"paren",x:"("+V_VERB[m[2]]+")"});
     const said=m[2]?clean.replace(new RegExp("^.*?\\b"+m[2]+"\\b[\\s,:]*","i"),""):"";
     out.push({t:"dialogue",x:said?tidy(vFixNames(said),"",false):""});
     return out;
   }
-  const at=vNameAt(words);
+  const V_STOP=new Set(["he","she","they","it","i","we","you","someone","somebody","everyone","everybody","nobody","no","one","the","a","an","this","that","who","what","and","but","so","then","mom","dad","mama","daddy"]);
+  const at=ctx.prose?null:(vNameAt(words)||(words.length>2&&!V_STOP.has(words[0])&&/^[a-z][a-z'’-]{1,}$/.test(words[0])?{name:words[0].toUpperCase(),len:1,guess:true}:null));
   if(at){
     const after=words.slice(at.len); const vi=after.findIndex(w=>w in V_VERB);
     const colon=/^[^:]{1,40}:/.test(clean) && after.length;
-    if(vi>=0&&vi<=2||colon){
+    if((vi>=0&&vi<=(at.guess?0:2))||(colon&&!at.guess)){
       const mood=vi>0?after.slice(0,vi).join(" "):""; const verb=vi>=0?after[vi]:"";
       const out=[{t:"character",x:at.name}];
       const paren=mood||V_VERB[verb]||"";
@@ -388,8 +398,9 @@ function vParse(raw){
 function voiceScript(raw, el){
   const blk=el&&el.closest&&el.closest("#scenes .blk"); if(!blk||!S.canWrite) return false;
   const sec=blk.closest("section.scene"), id=sec&&sec.dataset.id, sc=id&&S.map[id]; if(!sc) return false;
-  const parsed=vParse(raw); if(!parsed) return false;
-  const i=+blk.dataset.i; sc.blocks[i].x=blk.textContent;
+  const i=+blk.dataset.i, cur=sc.blocks[i]; cur.x=blk.textContent;
+  // while writing an action line, "Nathan asks for the check" stays prose; start a new line to dictate dialogue
+  const parsed=vParse(raw,{empty:!cur.x.trim(), prose:cur.t==="action"&&!!cur.x.trim()}); if(!parsed) return false;
   insertParsed(id,i,parsed);
   return true;
 }
@@ -407,6 +418,8 @@ function onKey(e){
     b.x=before;
     if(b.t==="character"&&before) b.x=before.toUpperCase();
     const nt = after.length? (b.t==="scene"?"action":b.t) : NEXT[b.t];
+    const nb=sc.blocks[i+1];
+    if(!after.length && nb && !nb.x && nb.t===nt){ rebuild(id); saveScene(id); focusBlock(id,i+1,0); renderTypes(); return; }
     sc.blocks.splice(i+1,0,{t:nt,x:after});
     if(nt==="scene") return regroup(id,i+1,0);
     rebuild(id); saveScene(id); focusBlock(id,i+1,0); renderTypes(); return;
@@ -415,7 +428,7 @@ function onKey(e){
     e.preventDefault(); if(i===0) return;
     let t;
     if(!el.textContent && b.t==="dialogue") t="paren";
-    else { const k=CYCLE.indexOf(b.t); t=CYCLE[(k+(e.shiftKey?CYCLE.length-1:1))%CYCLE.length]; }
+    else { const C=CYCLE.filter(x=>x!=="scene"); const k=Math.max(0,C.indexOf(b.t)); t=C[(k+(e.shiftKey?C.length-1:1))%C.length]; }
     setType(t); return;
   }
   if(e.key==="Backspace"){
@@ -473,7 +486,7 @@ function deleteScene(id, quiet){
 }
 function moveScene(id, dir){
   const k=S.scenes.findIndex(s=>s.id===id), j=k+dir; if(j<0||j>=S.scenes.length) return;
-  const a=S.scenes[k], b=S.scenes[j]; [a.order,b.order]=[b.order,a.order];
+  const a=S.scenes[k], b=S.scenes[j]; [a.order,b.order]=[b.order,a.order]; a._od=b._od=true;
   if(a.order===b.order) a.order+=dir*0.001;
   S.scenes.sort((x,y)=>x.order-y.order); saveScene(a.id,true); saveScene(b.id,true); renderScript();
 }
@@ -533,7 +546,7 @@ function fillOpts(sel, arr, v){ sel.innerHTML=`<option value="">—</option>`+ar
 function openPanel(id, sceneId){
   const p=id?S.panels.find(x=>x.id===id):null; ED.id=id; ED.undo=[]; ED.touched=false;
   const sid=p?p.sceneId:sceneId;
-  $("#pScene").innerHTML=S.scenes.map((sc,k)=>`<option value="${sc.id}" ${sc.id===sid?"selected":""}>${k+1}. ${esc(heading(sc)||"Untitled scene")}</option>`).join("");
+  $("#pScene").innerHTML=(sid&&!S.map[sid]||!sid?`<option value="" selected>Unassigned</option>`:"")+S.scenes.map((sc,k)=>`<option value="${sc.id}" ${sc.id===sid?"selected":""}>${k+1}. ${esc(heading(sc)||"Untitled scene")}</option>`).join("");
   fillOpts($("#pShot"),SHOTS,p&&p.shot); fillOpts($("#pAngle"),ANGLES,p&&p.angle); fillOpts($("#pMove"),MOVES,p&&p.move);
   $("#pLens").value=p&&p.lens||""; $("#pDur").value=p&&p.dur||""; $("#pSetup").value=p&&p.setup||""; $("#pDesc").value=p&&p.desc||""; $("#pAudio").value=p&&p.audio||"";
   $("#pTitle").textContent=p?"Edit shot":"New shot"; $("#pDelete").hidden=!p;
@@ -873,7 +886,7 @@ async function restoreVersion(id){
   const keep=new Set(target.map(s=>s.id));
   S.scenes.filter(s=>!keep.has(s.id)).forEach(s=>deleteScene(s.id,true));
   target.forEach(t=>{
-    const sc={id:t.id,order:t.order,blocks:t.blocks.map(b=>({t:b.t,x:b.x}))};
+    const sc={id:t.id,order:t.order,blocks:t.blocks.map(b=>({t:b.t,x:b.x})),_od:true};
     if(S.map[t.id]){ Object.assign(S.map[t.id],sc); } else { S.scenes.push(sc); S.map[sc.id]=sc; }
     saveScene(t.id,true);
   });
@@ -1388,7 +1401,7 @@ function hdAutoMap(){
   const vk=vKey(), n=hdNarr();
   const sig=[HD.eng,(HD.voices||[]).length,n&&n.id,S.scenes.length,Object.keys(S.chars).map(k=>{ const c=S.chars[k]||{}; return k+":"+(c.tts_type||"")+":"+(c[vk]||"")+":"+(c.age||"")+":"+(c.pronouns||""); }).join(",")].join("|");
   if(hdAutoMap.sig===sig) return hdAutoMap.map;
-  const names=speakingChars(), lines={}; names.forEach(x=>lines[x]=lineCount(x));
+  const names=speakingChars(), lines={}; names.forEach(x=>lines[x]=dialogueCount(x));
   const used=new Set(n?[n.id]:[]); const map={};
   names.forEach(x=>{ const v=(HD.voices||[]).find(v=>v.id===(S.chars[ckey(x)]||{})[vk]); if(v) used.add(v.id); });
   names.slice().sort((a,b)=>lines[b]-lines[a]||a.localeCompare(b)).forEach(x=>{
@@ -1655,7 +1668,7 @@ function hearChar(name){ if(hdOn()) hdSay(sampleLine(name), hdChar(name).voice);
 function hearNarr(){ const t=`${S.meta.title||"Untitled"}. Interior. Day.`; if(hdOn()) hdSay(t, hdNarr()); else sayOnce(t, {voice:narrVoice()}); }
 /* cast panel: a voice for the narrator and every character, in one place */
 function speakingChars(){ const nums=castNumbers(); return Object.keys(nums).sort((a,b)=>nums[a]-nums[b]); }
-function lineCount(n){ let c=0; S.scenes.forEach(sc=>{ let w=null; sc.blocks.forEach(b=>{ if(b.t==="character") w=cleanChar(b.x||""); else if(b.t==="dialogue"&&w===n) c++; else if(b.t!=="paren") w=null; }); }); return c; }
+function dialogueCount(n){ let c=0; S.scenes.forEach(sc=>{ let w=null; sc.blocks.forEach(b=>{ if(b.t==="character") w=cleanChar(b.x||""); else if(b.t==="dialogue"&&w===n) c++; else if(b.t!=="paren") w=null; }); }); return c; }
 function engineBox(dis){
   const e=engOf(), hdSel=e==="hd"&&!!adapters.tts, natSel=e==="natural"&&KOKO_OK; const q=HD.quota;
   if(!adapters.tts&&!KOKO_OK) return "";
@@ -1672,7 +1685,7 @@ function renderCast(){
     <tr><td><b>Narrator</b><small>Headings and action</small></td><td class="muted">—</td>
       <td><select class="field" data-narr ${dis}>${hdOpts(hdNarr())}</select></td>
       <td><button class="btn" data-hear-narr type="button" aria-label="Hear the narrator">▶</button></td></tr>
-    ${names.map(n=>{ const k=ckey(n), p=S.chars[k]||{}, h=hdChar(n); const g=/woman|girl/.test(h.type)?"f":/man|boy/.test(h.type)?"m":""; const lc=lineCount(n); const auto=VTYPES.find(t=>t[0]===h.type);
+    ${names.map(n=>{ const k=ckey(n), p=S.chars[k]||{}, h=hdChar(n); const g=/woman|girl/.test(h.type)?"f":/man|boy/.test(h.type)?"m":""; const lc=dialogueCount(n); const auto=VTYPES.find(t=>t[0]===h.type);
       return `<tr data-ck="${esc(k)}" data-cn="${esc(n)}"><td><b>${esc(n)}</b><small>${lc} line${lc===1?"":"s"}</small></td>
       <td><select class="field" data-ct="tts_type" ${dis}>${VTYPES.map(([v,l])=>`<option value="${v}" ${(p.tts_type||"")===v?"selected":""}>${l}${!v&&h.type&&!p.tts_type&&auto?` (${auto[1].toLowerCase()})`:""}</option>`).join("")}</select></td>
       <td><select class="field" data-ct="${vKey()}" ${dis}><option value="">Automatic: ${esc(h.voice?h.voice.name:"—")}</option>${hdOpts(h.saved?h.voice:null,g)}</select></td>
@@ -1684,7 +1697,7 @@ function renderCast(){
     <tr><td><b>Narrator</b><small>Headings and action</small></td><td class="muted">—</td>
       <td><select class="field" data-narr ${dis}>${voiceOpts(narr)}</select></td><td class="muted">—</td>
       <td><button class="btn" data-hear-narr type="button" aria-label="Hear the narrator">▶</button></td></tr>
-    ${names.map(n=>{ const k=ckey(n), p=S.chars[k]||{}, vs=charVoice(n), pick=savedVoice(p); const g=/woman|girl/.test(vs.type)?"f":/man|boy/.test(vs.type)?"m":""; const lc=lineCount(n); const auto=VTYPES.find(t=>t[0]===vs.type);
+    ${names.map(n=>{ const k=ckey(n), p=S.chars[k]||{}, vs=charVoice(n), pick=savedVoice(p); const g=/woman|girl/.test(vs.type)?"f":/man|boy/.test(vs.type)?"m":""; const lc=dialogueCount(n); const auto=VTYPES.find(t=>t[0]===vs.type);
       return `<tr data-ck="${esc(k)}" data-cn="${esc(n)}"><td><b>${esc(n)}</b><small>${lc} line${lc===1?"":"s"}</small></td>
       <td><select class="field" data-ct="tts_type" ${dis}>${VTYPES.map(([v,l])=>`<option value="${v}" ${(p.tts_type||"")===v?"selected":""}>${l}${!v&&vs.type&&!p.tts_type&&auto?` (${auto[1].toLowerCase()})`:""}</option>`).join("")}</select></td>
       <td><select class="field" data-ct="tts_voice" ${dis}><option value="">Automatic: ${esc(vs.voice?vs.voice.name:"default")}</option>${voiceOpts(pick, g)}</select></td>
@@ -1713,10 +1726,11 @@ function closeCast(){ const o=$("#castOv"); if(o) o.hidden=true; }
 })();
 setTimeout(()=>{ if(!dead&&hdNeed()) hdLoad(); },2500);
 if(TTS){ loadVoices(); if(TTS.addEventListener) TTS.addEventListener("voiceschanged",loadVoices); else TTS.onvoiceschanged=loadVoices; }
+const offVoices=()=>{ try{ if(TTS){ if(TTS.removeEventListener) TTS.removeEventListener("voiceschanged",loadVoices); else if(TTS.onvoiceschanged===loadVoices) TTS.onvoiceschanged=null; } }catch(e){} };
 $("#readBtn").onclick=()=>startRead();
 $("#scenes").addEventListener("dblclick",e=>{ if(!R.on) return; const el=e.target.closest(".blk"); const sec=e.target.closest("section.scene"); if(!el||!sec) return;
   const j=R.queue.findIndex(q=>q.sc===sec.dataset.id&&q.i>=+el.dataset.i); if(j>=0){ R.i=j; playRead(); } });
-document.addEventListener("keydown",e=>{
+const onDocKey=e=>{
   if(dead||!R.on) return;
   if(e.key==="Escape"){ if(!$("#castOv").hidden) closeCast(); else stopRead(); return; }
   const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -1724,7 +1738,8 @@ document.addEventListener("keydown",e=>{
   if(e.key===" "){ e.preventDefault(); R.playing?pauseRead():playRead(); }
   else if(e.key==="ArrowRight"){ e.preventDefault(); e.shiftKey?stepScene(1):stepRead(1); }
   else if(e.key==="ArrowLeft"){ e.preventDefault(); e.shiftKey?stepScene(-1):stepRead(-1); }
-});
+};
+document.addEventListener("keydown",onDocKey);
 
 function voiceFields(c,dis){
   const p=c.p||{};
@@ -1759,7 +1774,7 @@ async function boot(){
   db.collection("panels").onSnapshot(onPanels,err);
   db.collection("callsheets").onSnapshot(onSheets,err);
   db.collection("characters").onSnapshot(onChars,err);
-  db.doc("project/meta").onSnapshot(s=>{ if(document.activeElement===$("#ptitle")) return; S.meta=s.exists?clone(s.data()):{}; $("#ptitle").value=S.meta.title||""; renderRev(); },err);
+  db.doc("project/meta").onSnapshot(s=>{ S.meta=s.exists?clone(s.data()):{}; if(document.activeElement!==$("#ptitle")) $("#ptitle").value=S.meta.title||""; renderRev(); },err);
   db.doc("project/cast").onSnapshot(s=>{ S.actors=s.exists?clone(s.data().actors)||{}:{}; if(S.view==="calls"&&!sheetFocused()) renderSheet(); if(S.view==="chars"&&!chFocused()) renderChars(); },err);
   setStatus();
   if(adapters.versions){ adapters.versions.list(1).then(v=>{ S.lastVersionAt=v[0]?new Date(v[0].created_at).getTime():0; }).catch(()=>{}); }
@@ -1770,5 +1785,8 @@ async function boot(){
 }
 const unTalk = attachDictation(root, { toast, command: voiceScript, fix: (t, el) => (el && el.closest && el.closest("#scenes .blk") ? vFixNames(t) : t) });
 boot();
-return ()=>{ dead=true; try{ unTalk(); }catch(e){} try{ R.tok++; R.playing=false; if(TTS) TTS.cancel(); hdStop(); KOKO.stop(); HD.cache.forEach(p=>p.then(u=>URL.revokeObjectURL(u)).catch(()=>{})); }catch(e){} [...S.dirty].forEach(id=>{ clearTimeout(S.timers[id]); flushScene(id); }); unsubs.forEach(u=>{ try{u&&u()}catch(e){} }); };
+return ()=>{ dead=true; try{ unTalk(); }catch(e){}
+  try{ document.removeEventListener("keydown",onDocKey); offVoices(); clearTimeout(autoT); clearTimeout(presT); clearTimeout(navT); clearTimeout(S.idleT); }catch(e){}
+  try{ ["olm-print","olm-print-css","olm-print-chars"].forEach(x=>{ const n=document.getElementById(x); if(n) n.remove(); }); }catch(e){}
+  try{ R.tok++; R.playing=false; if(TTS) TTS.cancel(); hdStop(); KOKO.stop(); HD.cache.forEach(p=>p.then(u=>URL.revokeObjectURL(u)).catch(()=>{})); }catch(e){} [...S.dirty].forEach(id=>{ clearTimeout(S.timers[id]); flushScene(id); }); unsubs.forEach(u=>{ try{u&&u()}catch(e){} }); };
 }
