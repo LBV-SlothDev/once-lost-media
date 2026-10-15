@@ -1,7 +1,7 @@
 import "./backlot.css";
 import { attachDictation, tidy } from "../lib/dictate.js";
 
-const MARKUP = "<div class=\"bar\">\n  <div class=\"bar-in\">\n    <div class=\"brand\"><i aria-hidden=\"true\"></i>BACKLOT</div>\n    <input id=\"ptitle\" class=\"ptitle\" placeholder=\"Untitled project\" aria-label=\"Project title\">\n    <div class=\"tabs\" role=\"tablist\">\n      <button class=\"tab\" role=\"tab\" data-view=\"script\" aria-selected=\"true\">Script</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"chars\" aria-selected=\"false\">Characters</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"board\" aria-selected=\"false\">Storyboard</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"calls\" aria-selected=\"false\">Call sheets</button>\n    </div>\n    <div class=\"spacer\"></div>\n    <div class=\"people\" id=\"people\" aria-label=\"People here now\"></div>\n    <div class=\"status\" id=\"status\"><span class=\"dot\"></span><span id=\"statusTxt\">Connecting\u2026</span></div>\n  </div>\n</div>\n<div class=\"banner\" id=\"banner\" hidden></div>\n\n<main>\n  <!-- SCRIPT -->\n  <section class=\"view\" id=\"v-script\">\n    <div class=\"script\">\n      <aside class=\"nav\">\n        <div class=\"nav-h\"><span class=\"eyebrow\">Scenes</span><button class=\"btn ghost\" id=\"addScene\" title=\"Add a scene at the end\">+ Scene</button></div>\n        <div class=\"stats\" id=\"stats\"></div>\n        <ol id=\"navList\"></ol>\n      </aside>\n      <div style=\"min-width:0\">\n        <div class=\"tools\">\n          <div class=\"types\" id=\"types\"></div>\n          <select class=\"field\" id=\"rev\" style=\"width:auto\" aria-label=\"Revision color\"></select>\n          <button class=\"btn\" id=\"importBtn\">Import</button>\n          <button class=\"btn primary\" id=\"readBtn\" title=\"Read the script aloud with a voice for each character\">▶ Table read</button>\n          <button class=\"btn\" id=\"pdfBtn\">Print / PDF</button>\n          <button class=\"btn\" id=\"historyBtn\">History</button>\n          <button class=\"btn\" id=\"exportBtn\">Export .fountain</button>\n          <button class=\"btn danger\" id=\"clearScript\">Clear script</button>\n          <input type=\"file\" id=\"importFile\" accept=\".fountain,.txt,.md,text/plain\" hidden>\n        </div>\n        <p class=\"hint\" style=\"margin:-4px 0 12px\">Enter starts the next element \u00b7 Tab changes element type \u00b7 paste or import a Fountain script to bring in existing pages.</p>\n        <div class=\"page-wrap\">\n          <div class=\"page\" id=\"page\">\n            <div class=\"revband\"></div><div class=\"revlabel\" id=\"revlabel\"></div>\n            <div id=\"scenes\"></div>\n            <div class=\"empty\" id=\"scriptEmpty\" hidden>\n              <h2>FADE IN:</h2>\n              <p style=\"margin:0\">The script is empty. Start the first scene, or import a Fountain script you already have.</p>\n              <div class=\"row\"><button class=\"btn primary\" id=\"startScript\">Start writing</button><button class=\"btn\" id=\"emptyImport\">Import a script</button></div>\n            </div>\n          </div>\n        </div>\n      </div>\n    </div>\n  </section>\n\n  <!-- CHARACTERS -->\n  <section class=\"view\" id=\"v-chars\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <input class=\"field\" id=\"chSearch\" placeholder=\"Find a character or actor\" aria-label=\"Find a character\" style=\"margin-bottom:8px\">\n        <div class=\"days\" id=\"chList\"></div>\n        <form id=\"chAdd\" class=\"chadd\"><input class=\"field\" id=\"chNew\" placeholder=\"Add a character\" aria-label=\"New character name\"><button class=\"btn primary\">Add</button></form>\n        <p class=\"hint\" style=\"margin:8px 2px 0\">Characters who speak in the script are added automatically.</p>\n      </aside>\n      <div id=\"chWrap\" style=\"min-width:0\"></div>\n      <input type=\"file\" id=\"chFile\" accept=\"image/*\" hidden>\n    </div>\n  </section>\n\n  <!-- STORYBOARD -->\n  <section class=\"view\" id=\"v-board\" hidden>\n    <div class=\"sb-tools\">\n      <select class=\"field\" id=\"sbFilter\" aria-label=\"Show scene\"></select>\n      <span class=\"hint\" id=\"sbCount\"></span>\n      <div class=\"spacer\"></div>\n    </div>\n    <div id=\"sbBody\"></div>\n  </section>\n\n  <!-- CALL SHEETS -->\n  <section class=\"view\" id=\"v-calls\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <div class=\"days\" id=\"days\"></div>\n        <button class=\"btn primary\" id=\"newSheet\" style=\"width:100%;justify-content:center;margin-top:8px\">+ New shoot day</button>\n      </aside>\n      <div id=\"sheetWrap\" style=\"min-width:0\"></div>\n    </div>\n  </section>\n</main>\n\n<!-- panel editor -->\n<div class=\"ov\" id=\"pov\" hidden>\n  <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"pTitle\">\n    <div class=\"mhead\"><h2 id=\"pTitle\">Shot</h2><button class=\"x\" id=\"pClose\" aria-label=\"Close\">\u2715</button></div>\n    <div class=\"ed\">\n      <div>\n        <div class=\"canvas-box\"><canvas id=\"cv\" width=\"960\" height=\"540\"></canvas><div class=\"thirds\" id=\"thirds\" hidden></div></div>\n        <div class=\"ctools\">\n          <button class=\"btn on\" data-tool=\"pen\">Pencil</button>\n          <button class=\"btn\" data-tool=\"marker\">Marker</button>\n          <button class=\"btn\" data-tool=\"eraser\">Eraser</button>\n          <select class=\"field\" id=\"pSize\" style=\"width:auto\" aria-label=\"Brush size\"><option value=\"2\">Fine</option><option value=\"4\" selected>Medium</option><option value=\"9\">Bold</option><option value=\"20\">Wide</option></select>\n          <button class=\"btn\" id=\"pUndo\">Undo</button>\n          <button class=\"btn\" id=\"pClear\">Clear</button>\n          <button class=\"btn\" id=\"pThirds\">Thirds</button>\n          <button class=\"btn\" id=\"pUpload\">Upload image</button>\n          <input type=\"file\" id=\"pFile\" accept=\"image/*\" hidden>\n        </div>\n      </div>\n      <div class=\"form\">\n        <label class=\"full\">Scene<select class=\"field\" id=\"pScene\"></select></label>\n        <label>Shot size<select class=\"field\" id=\"pShot\"></select></label>\n        <label>Angle<select class=\"field\" id=\"pAngle\"></select></label>\n        <label>Movement<select class=\"field\" id=\"pMove\"></select></label>\n        <label>Lens (mm)<input class=\"field\" id=\"pLens\" inputmode=\"numeric\" placeholder=\"35\"></label>\n        <label>Duration (sec)<input class=\"field\" id=\"pDur\" inputmode=\"decimal\" placeholder=\"4\"></label>\n        <label>Setup<input class=\"field\" id=\"pSetup\" placeholder=\"A cam\"></label>\n        <label class=\"full\">Action / description<textarea class=\"field\" id=\"pDesc\" rows=\"3\" placeholder=\"What happens in frame\"></textarea></label>\n        <label class=\"full\">Dialogue / sound<textarea class=\"field\" id=\"pAudio\" rows=\"2\" placeholder=\"Lines or SFX over this shot\"></textarea></label>\n      </div>\n    </div>\n    <div class=\"mfoot\">\n      <button class=\"btn danger\" id=\"pDelete\">Delete shot</button>\n      <div style=\"display:flex;gap:8px\"><button class=\"btn\" id=\"pCancel\">Cancel</button><button class=\"btn primary\" id=\"pSave\">Save shot</button></div>\n    </div>\n  </div>\n</div>\n\n<!-- confirm -->\n<div class=\"ov\" id=\"cov\" hidden>\n  <div class=\"modal sm\" role=\"alertdialog\" aria-modal=\"true\">\n    <p id=\"cMsg\" style=\"margin:4px 0 16px;font-size:15px\"></p>\n    <div class=\"mfoot\" style=\"justify-content:flex-end\"><button class=\"btn\" id=\"cNo\">Cancel</button><button class=\"btn primary\" id=\"cYes\">Delete</button></div>\n  </div>\n</div>\n<div class=\"reader\" id=\"reader\" hidden role=\"region\" aria-label=\"Table read\"><button class=\"btn primary\" id=\"rdPlay\">▶ Play</button><button class=\"btn\" id=\"rdPrev\" aria-label=\"Previous line\">⏮</button><button class=\"btn\" id=\"rdNext\" aria-label=\"Next line\">⏭</button><span class=\"rd-now\" id=\"rdNow\" aria-live=\"polite\"></span><select class=\"field\" id=\"rdNarr\" aria-label=\"Narrator voice\"></select><label class=\"rd-opt\">Speed<input type=\"range\" id=\"rdRate\" min=\"0.6\" max=\"1.6\" step=\"0.1\" value=\"1\"></label><label class=\"rd-opt\"><input type=\"checkbox\" id=\"rdHead\" checked> Headings</label><label class=\"rd-opt\"><input type=\"checkbox\" id=\"rdAction\" checked> Action</label><button class=\"x\" id=\"rdClose\" aria-label=\"Stop reading\">✕</button></div>\n<div class=\"toast\" id=\"toast\" hidden></div>";
+const MARKUP = "<div class=\"bar\">\n  <div class=\"bar-in\">\n    <div class=\"brand\"><i aria-hidden=\"true\"></i>BACKLOT</div>\n    <input id=\"ptitle\" class=\"ptitle\" placeholder=\"Untitled project\" aria-label=\"Project title\">\n    <div class=\"tabs\" role=\"tablist\">\n      <button class=\"tab\" role=\"tab\" data-view=\"script\" aria-selected=\"true\">Script</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"chars\" aria-selected=\"false\">Characters</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"board\" aria-selected=\"false\">Storyboard</button>\n      <button class=\"tab\" role=\"tab\" data-view=\"calls\" aria-selected=\"false\">Call sheets</button>\n    </div>\n    <div class=\"spacer\"></div>\n    <div class=\"people\" id=\"people\" aria-label=\"People here now\"></div>\n    <div class=\"status\" id=\"status\"><span class=\"dot\"></span><span id=\"statusTxt\">Connecting\u2026</span></div>\n  </div>\n</div>\n<div class=\"banner\" id=\"banner\" hidden></div>\n\n<main>\n  <!-- SCRIPT -->\n  <section class=\"view\" id=\"v-script\">\n    <div class=\"script\">\n      <aside class=\"nav\">\n        <div class=\"nav-h\"><span class=\"eyebrow\">Scenes</span><button class=\"btn ghost\" id=\"addScene\" title=\"Add a scene at the end\">+ Scene</button></div>\n        <div class=\"stats\" id=\"stats\"></div>\n        <ol id=\"navList\"></ol>\n      </aside>\n      <div style=\"min-width:0\">\n        <div class=\"tools\">\n          <div class=\"types\" id=\"types\"></div>\n          <select class=\"field\" id=\"rev\" style=\"width:auto\" aria-label=\"Revision color\"></select>\n          <button class=\"btn\" id=\"importBtn\">Import</button>\n          <button class=\"btn primary\" id=\"readBtn\" title=\"Read the script aloud with a voice for each character\">▶ Table read</button>\n          <button class=\"btn\" id=\"pdfBtn\">Print / PDF</button>\n          <button class=\"btn\" id=\"historyBtn\">History</button>\n          <button class=\"btn\" id=\"exportBtn\">Export .fountain</button>\n          <button class=\"btn danger\" id=\"clearScript\">Clear script</button>\n          <input type=\"file\" id=\"importFile\" hidden>\n        </div>\n        <p class=\"hint\" style=\"margin:-4px 0 12px\">Enter starts the next element \u00b7 Tab changes element type \u00b7 paste or import a script (Final Draft, PDF, Word, Fountain or text) to bring in existing pages.</p>\n        <div class=\"page-wrap\">\n          <div class=\"page\" id=\"page\">\n            <div class=\"revband\"></div><div class=\"revlabel\" id=\"revlabel\"></div>\n            <div id=\"scenes\"></div>\n            <div class=\"empty\" id=\"scriptEmpty\" hidden>\n              <h2>FADE IN:</h2>\n              <p style=\"margin:0\">The script is empty. Start the first scene, or import a script you already have (Final Draft, PDF, Word, Fountain or text).</p>\n              <div class=\"row\"><button class=\"btn primary\" id=\"startScript\">Start writing</button><button class=\"btn\" id=\"emptyImport\">Import a script</button></div>\n            </div>\n          </div>\n        </div>\n      </div>\n    </div>\n  </section>\n\n  <!-- CHARACTERS -->\n  <section class=\"view\" id=\"v-chars\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <input class=\"field\" id=\"chSearch\" placeholder=\"Find a character or actor\" aria-label=\"Find a character\" style=\"margin-bottom:8px\">\n        <div class=\"days\" id=\"chList\"></div>\n        <form id=\"chAdd\" class=\"chadd\"><input class=\"field\" id=\"chNew\" placeholder=\"Add a character\" aria-label=\"New character name\"><button class=\"btn primary\">Add</button></form>\n        <p class=\"hint\" style=\"margin:8px 2px 0\">Characters who speak in the script are added automatically.</p>\n      </aside>\n      <div id=\"chWrap\" style=\"min-width:0\"></div>\n      <input type=\"file\" id=\"chFile\" accept=\"image/*\" hidden>\n    </div>\n  </section>\n\n  <!-- STORYBOARD -->\n  <section class=\"view\" id=\"v-board\" hidden>\n    <div class=\"sb-tools\">\n      <select class=\"field\" id=\"sbFilter\" aria-label=\"Show scene\"></select>\n      <span class=\"hint\" id=\"sbCount\"></span>\n      <div class=\"spacer\"></div>\n    </div>\n    <div id=\"sbBody\"></div>\n  </section>\n\n  <!-- CALL SHEETS -->\n  <section class=\"view\" id=\"v-calls\" hidden>\n    <div class=\"cs\">\n      <aside>\n        <div class=\"days\" id=\"days\"></div>\n        <button class=\"btn primary\" id=\"newSheet\" style=\"width:100%;justify-content:center;margin-top:8px\">+ New shoot day</button>\n      </aside>\n      <div id=\"sheetWrap\" style=\"min-width:0\"></div>\n    </div>\n  </section>\n</main>\n\n<!-- panel editor -->\n<div class=\"ov\" id=\"pov\" hidden>\n  <div class=\"modal\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"pTitle\">\n    <div class=\"mhead\"><h2 id=\"pTitle\">Shot</h2><button class=\"x\" id=\"pClose\" aria-label=\"Close\">\u2715</button></div>\n    <div class=\"ed\">\n      <div>\n        <div class=\"canvas-box\"><canvas id=\"cv\" width=\"960\" height=\"540\"></canvas><div class=\"thirds\" id=\"thirds\" hidden></div></div>\n        <div class=\"ctools\">\n          <button class=\"btn on\" data-tool=\"pen\">Pencil</button>\n          <button class=\"btn\" data-tool=\"marker\">Marker</button>\n          <button class=\"btn\" data-tool=\"eraser\">Eraser</button>\n          <select class=\"field\" id=\"pSize\" style=\"width:auto\" aria-label=\"Brush size\"><option value=\"2\">Fine</option><option value=\"4\" selected>Medium</option><option value=\"9\">Bold</option><option value=\"20\">Wide</option></select>\n          <button class=\"btn\" id=\"pUndo\">Undo</button>\n          <button class=\"btn\" id=\"pClear\">Clear</button>\n          <button class=\"btn\" id=\"pThirds\">Thirds</button>\n          <button class=\"btn\" id=\"pUpload\">Upload image</button>\n          <input type=\"file\" id=\"pFile\" accept=\"image/*\" hidden>\n        </div>\n      </div>\n      <div class=\"form\">\n        <label class=\"full\">Scene<select class=\"field\" id=\"pScene\"></select></label>\n        <label>Shot size<select class=\"field\" id=\"pShot\"></select></label>\n        <label>Angle<select class=\"field\" id=\"pAngle\"></select></label>\n        <label>Movement<select class=\"field\" id=\"pMove\"></select></label>\n        <label>Lens (mm)<input class=\"field\" id=\"pLens\" inputmode=\"numeric\" placeholder=\"35\"></label>\n        <label>Duration (sec)<input class=\"field\" id=\"pDur\" inputmode=\"decimal\" placeholder=\"4\"></label>\n        <label>Setup<input class=\"field\" id=\"pSetup\" placeholder=\"A cam\"></label>\n        <label class=\"full\">Action / description<textarea class=\"field\" id=\"pDesc\" rows=\"3\" placeholder=\"What happens in frame\"></textarea></label>\n        <label class=\"full\">Dialogue / sound<textarea class=\"field\" id=\"pAudio\" rows=\"2\" placeholder=\"Lines or SFX over this shot\"></textarea></label>\n      </div>\n    </div>\n    <div class=\"mfoot\">\n      <button class=\"btn danger\" id=\"pDelete\">Delete shot</button>\n      <div style=\"display:flex;gap:8px\"><button class=\"btn\" id=\"pCancel\">Cancel</button><button class=\"btn primary\" id=\"pSave\">Save shot</button></div>\n    </div>\n  </div>\n</div>\n\n<!-- confirm -->\n<div class=\"ov\" id=\"cov\" hidden>\n  <div class=\"modal sm\" role=\"alertdialog\" aria-modal=\"true\">\n    <p id=\"cMsg\" style=\"margin:4px 0 16px;font-size:15px\"></p>\n    <div class=\"mfoot\" style=\"justify-content:flex-end\"><button class=\"btn\" id=\"cNo\">Cancel</button><button class=\"btn primary\" id=\"cYes\">Delete</button></div>\n  </div>\n</div>\n<div class=\"reader\" id=\"reader\" hidden role=\"region\" aria-label=\"Table read\"><button class=\"btn primary\" id=\"rdPlay\">▶ Play</button><button class=\"btn\" id=\"rdPrev\" aria-label=\"Previous line\">⏮</button><button class=\"btn\" id=\"rdNext\" aria-label=\"Next line\">⏭</button><span class=\"rd-now\" id=\"rdNow\" aria-live=\"polite\"></span><select class=\"field\" id=\"rdNarr\" aria-label=\"Narrator voice\"></select><label class=\"rd-opt\">Speed<input type=\"range\" id=\"rdRate\" min=\"0.6\" max=\"1.6\" step=\"0.1\" value=\"1\"></label><label class=\"rd-opt\"><input type=\"checkbox\" id=\"rdHead\" checked> Headings</label><label class=\"rd-opt\"><input type=\"checkbox\" id=\"rdAction\" checked> Action</label><button class=\"x\" id=\"rdClose\" aria-label=\"Stop reading\">✕</button></div>\n<div class=\"toast\" id=\"toast\" hidden></div>";
 
 const downloads = {
   async save({ filename, data }) {
@@ -490,12 +490,171 @@ function moveScene(id, dir){
   if(a.order===b.order) a.order+=dir*0.001;
   S.scenes.sort((x,y)=>x.order-y.order); saveScene(a.id,true); saveScene(b.id,true); renderScript();
 }
-function importText(text){
-  const parsed=parseFountain(text); if(!parsed.length){ toast("No script elements found in that file."); return; }
+function importText(text){ importBlocks(parseFountain(text)); }
+function importBlocks(parsed){
+  parsed=(parsed||[]).filter(b=>b&&b.x&&b.x.trim());
+  if(!parsed.length){ toast("No script elements found in that file."); return; }
   const groups=[]; parsed.forEach(b=>{ if(b.t==="scene"||!groups.length) groups.push(b.t==="scene"?[b]:[{t:"scene",x:""},b]); else groups[groups.length-1].push(b); });
   if(S.scenes.length===1 && S.scenes[0].blocks.every(b=>!b.x.trim())) deleteScene(S.scenes[0].id,true);
-  groups.forEach(g=>addScene(g,false));
-  toast(`Imported ${groups.length} scenes.`);
+  let ord=lastOrder();
+  groups.forEach(g=>{ const sc={id:uid(),order:++ord,blocks:g.map(b=>({t:b.t,x:b.x}))}; S.scenes.push(sc); S.map[sc.id]=sc; saveScene(sc.id,true); });
+  renderScript();
+  toast(`Imported ${groups.length} scene${groups.length===1?"":"s"}.`);
+}
+
+/* ---------- import: Final Draft, PDF, Word, Fountain, text ---------- */
+const libCache={};
+function loadLib(src, glob){
+  if(window[glob]) return Promise.resolve(window[glob]);
+  return libCache[src]||(libCache[src]=new Promise((res,rej)=>{
+    const s=document.createElement("script"); s.src=src; s.async=true;
+    s.onload=()=>window[glob]?res(window[glob]):rej(new Error("load"));
+    s.onerror=()=>{ delete libCache[src]; rej(new Error("load")); };
+    document.head.appendChild(s);
+  }));
+}
+const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+const JSZIP="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+async function importFile(f){
+  if(!S.canWrite) return;
+  const name=(f.name||"").toLowerCase(), ext=(name.match(/\.([a-z0-9]+)$/)||[])[1]||"";
+  const head=new Uint8Array(await f.slice(0,5).arrayBuffer());
+  const isPdf=ext==="pdf"||(head[0]===0x25&&head[1]===0x50&&head[2]===0x44&&head[3]===0x46);
+  const isZip=head[0]===0x50&&head[1]===0x4b;
+  try{
+    if(ext==="doc"||ext==="pages"||ext==="celtx"||ext==="wdz"){ toast("That file type can't be read. Save it as PDF, Word (.docx), Final Draft (.fdx) or Fountain and import again."); return; }
+    if(isPdf){ toast("Reading the PDF…"); return importBlocks(await pdfBlocks(f)); }
+    if(ext==="docx"||(isZip&&ext!=="fdx")){ toast("Reading the Word file…"); return importBlocks(await docxBlocks(f)); }
+    const text=await f.text();
+    if(ext==="fdx"||/<FinalDraft[\s>]/.test(text.slice(0,2000))) return importBlocks(fdxBlocks(text));
+    if(/\u0000/.test(text.slice(0,4000))){ toast("That file type can't be read. Save it as PDF, Word (.docx), Final Draft (.fdx) or Fountain and import again."); return; }
+    if(ext==="rtf"||/^\{\\rtf/.test(text)) return importText(rtfText(text));
+    importText(text);
+  }catch(err){
+    console.warn("import failed", err);
+    toast(err&&err.message==="load"?"Couldn't load the file reader. Check your connection and try again.":err&&err.friendly?err.message:"Couldn't read that file. Try saving it as PDF, Final Draft or Fountain.");
+  }
+}
+const FDX_TYPES={"scene heading":"scene","action":"action","general":"action","character":"character","parenthetical":"paren","dialogue":"dialogue","transition":"transition","shot":"shot","new act":"action","end of act":"action","cast list":"action"};
+function fdxBlocks(xml){
+  const doc=new DOMParser().parseFromString(xml,"application/xml");
+  const content=doc.querySelector("Content")||doc;
+  const out=[];
+  [...content.querySelectorAll(":scope > Paragraph")].forEach(p=>{
+    const type=FDX_TYPES[(p.getAttribute("Type")||"action").toLowerCase()]||"action";
+    const x=[...p.querySelectorAll(":scope > Text")].map(t=>t.textContent).join("").replace(/\s+/g," ").trim();
+    if(!x) return;
+    const last=out[out.length-1];
+    if(type==="dialogue"&&last&&last.t==="dialogue") last.x+=" "+x; else out.push({t:type,x});
+  });
+  return out;
+}
+function rtfText(r){
+  return r.replace(/\\par[d]?\b ?/g,"\n").replace(/\\line ?/g,"\n").replace(/\\'([0-9a-f]{2})/gi,(m,h)=>String.fromCharCode(parseInt(h,16)))
+    .replace(/\\[a-z]+-?\d* ?/gi,"").replace(/[{}]/g,"").replace(/\n{3,}/g,"\n\n");
+}
+/* Lay out lines of a page as a screenplay: the left-most common margin is action; dialogue, parentheticals,
+   character cues and transitions sit at known indents (in points) from it. */
+function layoutBlocks(lines){
+  const keep=lines.filter(l=>l.text.trim() && !/^(\(?CONTINUED\)?:?|\(MORE\)|CONT(INUED|'D)\.?)$/i.test(l.text.trim()) && !/^\d+[A-Z]?\.?$/.test(l.text.trim()));
+  if(!keep.length) return [];
+  const xs=keep.map(l=>Math.round(l.x)).sort((a,b)=>a-b);
+  const near=x=>xs.filter(v=>Math.abs(v-x)<=3).length;
+  const base=xs.find(x=>near(x)>=Math.max(3,keep.length*0.03))??xs[0];
+  const sceneRe=/^(\d+[A-Z]?\s+)?(INT|EXT|EST|I\/E|INT\.?\/EXT|EXT\.?\/INT)[.\s]/i;
+  const out=[]; let prev=null;
+  keep.forEach(l=>{
+    let x=l.text.replace(/\s+/g," ").trim(), ind=l.x-base, t;
+    const upper=x===x.toUpperCase()&&/[A-Z]/.test(x);
+    if(ind<-20 && sceneRe.test(x)) ind=0;
+    if(ind<36){
+      if(sceneRe.test(x)&&upper){ t="scene"; x=x.replace(/^\d+[A-Z]?\s+/,"").replace(/\s+\d+[A-Z]?$/,""); }
+      else if(upper&&/(TO:|FADE OUT\.?|FADE TO BLACK\.?)$/.test(x)) t="transition";
+      else t="action";
+    }
+    else if(ind<100) t=/^\(/.test(x)&&ind>60&&prev&&(prev.t==="character"||prev.t==="dialogue")?"paren":"dialogue";
+    else if(ind<150) t=/^\(/.test(x)||(prev&&prev.t==="paren"&&!/\)$/.test(prev.x))?"paren":"dialogue";
+    else if(ind<270) t=upper?"character":(prev&&prev.t==="dialogue"?"dialogue":"action");
+    else t=upper?"transition":"action";
+    if((t==="dialogue"||t==="paren")&&!(prev&&["character","dialogue","paren"].includes(prev.t))) t="action";
+    const sameBlock=prev&&prev.t===t&&!l.gap&&(t==="action"||t==="dialogue"||(t==="paren"&&!/\)$/.test(prev.x)));
+    if(sameBlock) prev.x+=" "+x;
+    else { prev={t,x}; out.push(prev); }
+  });
+  return out;
+}
+async function pdfLines(f){
+  const lib=await loadLib(PDFJS+"pdf.min.js","pdfjsLib");
+  lib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js";
+  const pdf=await lib.getDocument({data:await f.arrayBuffer()}).promise;
+  const pages=[];
+  for(let n=1;n<=pdf.numPages;n++){
+    const pg=await pdf.getPage(n); const vp=pg.getViewport({scale:1}); const tc=await pg.getTextContent();
+    const rows=[];
+    tc.items.forEach(it=>{ if(!it.str||!it.str.trim()) return;
+      const x=it.transform[4], y=vp.height-it.transform[5], h=Math.abs(it.transform[3])||12;
+      let r=rows.find(r=>Math.abs(r.y-y)<h*0.4);
+      if(!r){ r={y,h,parts:[]}; rows.push(r); }
+      r.parts.push({x,s:it.str,w:it.width||0});
+    });
+    rows.sort((a,b)=>a.y-b.y);
+    const pl=[];
+    rows.forEach(r=>{
+      r.parts.sort((a,b)=>a.x-b.x);
+      // scene numbers sit in the margins: drop a lone number at either end of the line
+      if(r.parts.length>1&&/^\s*\d+[A-Z]?\.?\s*$/.test(r.parts[0].s)&&r.parts[1].x-(r.parts[0].x+r.parts[0].w)>12) r.parts.shift();
+      if(r.parts.length>1){ const a=r.parts[r.parts.length-1], b=r.parts[r.parts.length-2]; if(/^\s*\d+[A-Z]?\.?\s*$/.test(a.s)&&a.x-(b.x+b.w)>12) r.parts.pop(); }
+      let s="", end=null;
+      r.parts.forEach(p=>{ if(end!==null&&p.x-end>1.5&&!/\s$/.test(s)&&!/^\s/.test(p.s)) s+=" "; s+=p.s; end=p.x+p.w; });
+      const lead=s.match(/^\s*/)[0].length;
+      pl.push({x:r.parts[0].x+lead*(r.parts[0].w/Math.max(1,r.parts[0].s.length)),y:r.y,h:r.h,text:s.trim()});
+    });
+    pl.forEach((l,i)=>{ const p=pl[i-1]; l.gap=!p||(l.y-p.y)>l.h*1.75; });
+    pages.push(pl);
+  }
+  return pages;
+}
+async function pdfBlocks(f){
+  const pages=await pdfLines(f);
+  const hasScene=pl=>pl.some(l=>/^(\d+[A-Z]?\s+)?(INT|EXT|EST|I\/E)[.\s/]/i.test(l.text));
+  if(pages.length>1&&!hasScene(pages[0])&&pages[0].length<30) pages.shift(); // title page
+  let lines=[];
+  pages.forEach(pl=>{
+    pl=pl.filter(l=>!/^\d+\.?$/.test(l.text)); // page numbers
+    if(!pl.length) return;
+    const last=lines[lines.length-1];
+    // dialogue split across pages: "(MORE)" at the bottom, "NAME (CONT'D)" repeated at the top
+    if(last&&/^\(MORE\)$/i.test(last.text)&&pl.length>1&&/\(CONT'?D\)|\(CONTINUING\)/i.test(pl[0].text)){ lines.pop(); pl.shift(); pl[0].gap=false; }
+    else pl[0].gap=true;
+    lines=lines.concat(pl);
+  });
+  if(!lines.length){ const e=new Error("This PDF has no text in it (it may be a scanned image). Export it again as a text PDF, or use Final Draft or Fountain."); e.friendly=true; throw e; }
+  return layoutBlocks(lines);
+}
+async function docxBlocks(f){
+  const JSZip=await loadLib(JSZIP,"JSZip");
+  const zip=await JSZip.loadAsync(await f.arrayBuffer());
+  const file=zip.file("word/document.xml"); if(!file) throw new Error("not docx");
+  const doc=new DOMParser().parseFromString(await file.async("string"),"application/xml");
+  const W="http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const ga=(el,a)=>el&&(el.getAttributeNS(W,a)||el.getAttribute("w:"+a));
+  const styleMap={"sceneheading":"scene","scene heading":"scene","slugline":"scene","action":"action","general":"action","character":"character","parenthetical":"paren","dialogue":"dialogue","transition":"transition","shot":"shot"};
+  const paras=[...doc.getElementsByTagNameNS(W,"p")];
+  const lines=[]; let blank=true, styled=[];
+  paras.forEach(p=>{
+    const text=[...p.getElementsByTagNameNS(W,"t")].map(t=>t.textContent).join("").replace(/\u00a0/g," ");
+    const st=(ga(p.getElementsByTagNameNS(W,"pStyle")[0],"val")||"").toLowerCase().replace(/[_-]/g," ");
+    const ind=p.getElementsByTagNameNS(W,"ind")[0];
+    const left=(parseInt(ga(ind,"left")||ga(ind,"start")||"0",10)||0)/20;
+    const jc=(ga(p.getElementsByTagNameNS(W,"jc")[0],"val")||"");
+    if(!text.trim()){ blank=true; return; }
+    const s=styleMap[st]||styleMap[st.replace(/\s+/g,"")]; if(s) styled.push({t:s,x:text.trim()});
+    lines.push({x:jc==="right"||jc==="end"?400:left,text,gap:blank}); blank=false;
+  });
+  if(styled.length>=lines.length*0.6&&styled.length) return styled;
+  const spread=new Set(lines.map(l=>Math.round(l.x/20))).size;
+  if(spread>=3) return layoutBlocks(lines);
+  return parseFountain(lines.map(l=>(l.gap?"\n":"")+l.text).join("\n"));
 }
 
 /* ---------- storyboard ---------- */
@@ -805,7 +964,7 @@ $("#addScene").onclick=()=>addScene();
 $("#startScript").onclick=()=>addScene();
 $("#emptyImport").onclick=()=>$("#importFile").click();
 $("#importBtn").onclick=()=>$("#importFile").click();
-$("#importFile").onchange=e=>{ const f=e.target.files[0]; e.target.value=""; if(!f) return; const r=new FileReader(); r.onload=()=>importText(String(r.result)); r.readAsText(f); };
+$("#importFile").onchange=e=>{ const f=e.target.files[0]; e.target.value=""; if(f) importFile(f); };
 $("#exportBtn").onclick=()=>saveFile(((S.meta.title||"screenplay").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"-")||"screenplay")+".fountain", toFountain());
 $("#ptitle").addEventListener("change",e=>{ S.meta.title=e.target.value.trim(); write("project/meta",r=>r.set({...S.meta})); if(S.view==="calls") renderSheet(); });
 $("#rev").addEventListener("change",e=>{ S.meta.rev=e.target.value.replace(/ pages$/,""); S.meta.revDate=new Date().toLocaleDateString(undefined,{month:"2-digit",day:"2-digit",year:"2-digit"}); renderRev(); write("project/meta",r=>r.set({...S.meta})); });
