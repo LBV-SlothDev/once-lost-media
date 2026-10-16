@@ -529,6 +529,13 @@ async function importFile(f){
     if(ext==="fdx"||/<FinalDraft[\s>]/.test(text.slice(0,2000))) return importBlocks(fdxBlocks(text));
     if(/\u0000/.test(text.slice(0,4000))){ toast("That file type can't be read. Save it as PDF, Word (.docx), Final Draft (.fdx) or Fountain and import again."); return; }
     if(ext==="rtf"||/^\{\\rtf/.test(text)) return importText(rtfText(text));
+    // a text export laid out with spaces (character cues and dialogue indented) reads by layout
+    const tl=text.replace(/\r/g,"").replace(/\t/g,"        ").split("\n");
+    if(ext!=="fountain"&&tl.filter(l=>/^ {8,}\S/.test(l)).length>=Math.max(3,tl.filter(l=>l.trim()).length*0.15)){
+      let blank=true; const lines=[];
+      tl.forEach(l=>{ if(!l.trim()){ blank=true; return; } lines.push({x:l.match(/^ */)[0].length*7.2,text:l.trim(),gap:blank}); blank=false; });
+      return importBlocks(layoutBlocks(lines));
+    }
     importText(text);
   }catch(err){
     console.warn("import failed", err);
@@ -553,33 +560,48 @@ function rtfText(r){
   return r.replace(/\\par[d]?\b ?/g,"\n").replace(/\\line ?/g,"\n").replace(/\\'([0-9a-f]{2})/gi,(m,h)=>String.fromCharCode(parseInt(h,16)))
     .replace(/\\[a-z]+-?\d* ?/gi,"").replace(/[{}]/g,"").replace(/\n{3,}/g,"\n\n");
 }
-/* Lay out lines of a page as a screenplay: the left-most common margin is action; dialogue, parentheticals,
-   character cues and transitions sit at known indents (in points) from it. */
+/* Turn lines from a PDF or Word file into script elements. Uses the page layout when the file has
+   real indents (dialogue ~1in, character cue ~2.2in in from the action margin), and the words themselves
+   when it doesn't: an ALL-CAPS name on its own line with lines right under it is a character cue,
+   the lines under it are dialogue, and "(...)" lines inside are parentheticals. */
+const SCENE_RE=/^(\d+[A-Z]?\s+)?(INT|EXT|EST|I\/E|INT\.?\s*\/\s*EXT|EXT\.?\s*\/\s*INT)[.\s]/i;
+const TRANS_RE=/(TO:|FADE OUT\.?|FADE TO BLACK\.?|CUT TO BLACK\.?|SMASH CUT\.?|FADE IN:)$/;
+function isCue(x){
+  const core=x.replace(/\s*\((V\.?O\.?|O\.?S\.?|O\.?C\.?|CONT'?’?D|CONT|CONTINUING|PRE-?LAP|FILTERED|ON PHONE|ON TV|ON SCREEN|INTO PHONE|SUBTITLED|[^)]{0,20})\)\s*/gi," ").replace(/\s*\^$/,"").trim();
+  return core.length>0 && core.length<=38 && core===core.toUpperCase() && /[A-Z]/.test(core) && !/[.!?:,;]$/.test(core)
+    && !SCENE_RE.test(core) && !TRANS_RE.test(core) && core.split(/\s+/).length<=4;
+}
 function layoutBlocks(lines){
   const keep=lines.filter(l=>l.text.trim() && !/^(\(?CONTINUED\)?:?|\(MORE\)|CONT(INUED|'D)\.?)$/i.test(l.text.trim()) && !/^\d+[A-Z]?\.?$/.test(l.text.trim()));
   if(!keep.length) return [];
   const xs=keep.map(l=>Math.round(l.x)).sort((a,b)=>a-b);
   const near=x=>xs.filter(v=>Math.abs(v-x)<=3).length;
   const base=xs.find(x=>near(x)>=Math.max(3,keep.length*0.03))??xs[0];
-  const sceneRe=/^(\d+[A-Z]?\s+)?(INT|EXT|EST|I\/E|INT\.?\/EXT|EXT\.?\/INT)[.\s]/i;
-  const out=[]; let prev=null;
-  keep.forEach(l=>{
-    let x=l.text.replace(/\s+/g," ").trim(), ind=l.x-base, t;
+  keep.forEach(l=>{ l.ind=l.x-base; l.x0=l.text.replace(/\s+/g," ").trim(); });
+  // are there real indents? (cue/dialogue lines sitting well in from the action margin)
+  const indented=keep.filter(l=>l.ind>=60).length;
+  const informative=indented>=Math.max(3,keep.length*0.08);
+  const out=[]; let prev=null, dia=false;
+  const push=(t,x,join)=>{ if(join&&prev&&prev.t===t) prev.x+=" "+x; else { prev={t,x}; out.push(prev); } };
+  keep.forEach((l,i)=>{
+    let x=l.x0; const ind=l.ind, next=keep[i+1];
     const upper=x===x.toUpperCase()&&/[A-Z]/.test(x);
-    if(ind<-20 && sceneRe.test(x)) ind=0;
-    if(ind<36){
-      if(sceneRe.test(x)&&upper){ t="scene"; x=x.replace(/^\d+[A-Z]?\s+/,"").replace(/\s+\d+[A-Z]?$/,""); }
-      else if(upper&&/(TO:|FADE OUT\.?|FADE TO BLACK\.?)$/.test(x)) t="transition";
-      else t="action";
+    // a page break in the middle of a speech keeps the speech going
+    if(l.gap&&!(l.pageTop&&informative&&ind>=36&&ind<150&&prev&&(prev.t==="dialogue"||prev.t==="paren"))) dia=false;
+    if(dia){
+      const outdented=informative&&ind<36;
+      const newElement=l.para&&prev&&prev.t==="dialogue"&&!/^\(/.test(x);
+      if(!outdented&&!newElement&&!(isCue(x)&&next&&!next.gap&&(!informative||ind>=120))){
+        if(/^\(/.test(x)||(prev&&prev.t==="paren"&&!/\)$/.test(prev.x))) push("paren",x,prev&&prev.t==="paren"&&!/\)$/.test(prev.x));
+        else push("dialogue",x,prev&&prev.t==="dialogue"&&!l.para);
+        return;
+      }
+      dia=false;
     }
-    else if(ind<100) t=/^\(/.test(x)&&ind>60&&prev&&(prev.t==="character"||prev.t==="dialogue")?"paren":"dialogue";
-    else if(ind<150) t=/^\(/.test(x)||(prev&&prev.t==="paren"&&!/\)$/.test(prev.x))?"paren":"dialogue";
-    else if(ind<270) t=upper?"character":(prev&&prev.t==="dialogue"?"dialogue":"action");
-    else t=upper?"transition":"action";
-    if((t==="dialogue"||t==="paren")&&!(prev&&["character","dialogue","paren"].includes(prev.t))) t="action";
-    const sameBlock=prev&&prev.t===t&&!l.gap&&(t==="action"||t==="dialogue"||(t==="paren"&&!/\)$/.test(prev.x)));
-    if(sameBlock) prev.x+=" "+x;
-    else { prev={t,x}; out.push(prev); }
+    if(SCENE_RE.test(x)&&upper&&(!informative||ind<60)){ push("scene",x.replace(/^\d+[A-Z]?\s+/,"").replace(/\s+\d+[A-Z]?$/,"")); return; }
+    if(upper&&(TRANS_RE.test(x)||(informative&&ind>=270))&&!isCue(x)||upper&&informative&&ind>=300){ push("transition",x); return; }
+    if(isCue(x)&&next&&!next.gap&&(!informative||ind>=120)&&!(SCENE_RE.test(next.x0||""))){ push("character",x); dia=true; return; }
+    push("action",x,!l.gap&&!l.para&&prev&&prev.t==="action");
   });
   return out;
 }
@@ -625,7 +647,7 @@ async function pdfBlocks(f){
     const last=lines[lines.length-1];
     // dialogue split across pages: "(MORE)" at the bottom, "NAME (CONT'D)" repeated at the top
     if(last&&/^\(MORE\)$/i.test(last.text)&&pl.length>1&&/\(CONT'?D\)|\(CONTINUING\)/i.test(pl[0].text)){ lines.pop(); pl.shift(); pl[0].gap=false; }
-    else pl[0].gap=true;
+    else { pl[0].gap=true; pl[0].pageTop=true; }
     lines=lines.concat(pl);
   });
   if(!lines.length){ const e=new Error("This PDF has no text in it (it may be a scanned image). Export it again as a text PDF, or use Final Draft or Fountain."); e.friendly=true; throw e; }
@@ -635,26 +657,49 @@ async function docxBlocks(f){
   const JSZip=await loadLib(JSZIP,"JSZip");
   const zip=await JSZip.loadAsync(await f.arrayBuffer());
   const file=zip.file("word/document.xml"); if(!file) throw new Error("not docx");
-  const doc=new DOMParser().parseFromString(await file.async("string"),"application/xml");
+  const P=s=>new DOMParser().parseFromString(s,"application/xml");
+  const doc=P(await file.async("string"));
   const W="http://schemas.openxmlformats.org/wordprocessingml/2006/main";
   const ga=(el,a)=>el&&(el.getAttributeNS(W,a)||el.getAttribute("w:"+a));
-  const styleMap={"sceneheading":"scene","scene heading":"scene","slugline":"scene","action":"action","general":"action","character":"character","parenthetical":"paren","dialogue":"dialogue","transition":"transition","shot":"shot"};
-  const paras=[...doc.getElementsByTagNameNS(W,"p")];
-  const lines=[]; let blank=true, styled=[];
-  paras.forEach(p=>{
+  const first=(el,tag)=>el&&el.getElementsByTagNameNS(W,tag)[0];
+  const tw=v=>(parseInt(v||"0",10)||0)/20;
+  // styles: name, left indent and space-before, following basedOn
+  const styles={};
+  const sf=zip.file("word/styles.xml");
+  if(sf){ [...P(await sf.async("string")).getElementsByTagNameNS(W,"style")].forEach(st=>{
+    const id=ga(st,"styleId"); if(!id) return; const ind=first(st,"ind"), sp=first(st,"spacing");
+    styles[id]={name:(ga(first(st,"name"),"val")||id).toLowerCase(), based:ga(first(st,"basedOn"),"val"),
+      left:ind?tw(ga(ind,"left")||ga(ind,"start")):null, before:sp&&ga(sp,"before")!=null?tw(ga(sp,"before")):null, jc:ga(first(st,"jc"),"val")};
+  }); }
+  const sget=(id,k)=>{ for(let n=0;id&&styles[id]&&n<8;n++){ if(styles[id][k]!=null) return styles[id][k]; id=styles[id].based; } return null; };
+  const kind=name=>{ name=(name||"").toLowerCase();
+    if(/scene ?heading|slug ?line|^scene$/.test(name)) return "scene";
+    if(/parenthetical/.test(name)) return "paren";
+    if(/character/.test(name)) return "character";
+    if(/dialog/.test(name)) return "dialogue";
+    if(/transition/.test(name)) return "transition";
+    if(/^shot$|\bshot\b/.test(name)) return "shot";
+    if(/action|general|description/.test(name)) return "action";
+    return null; };
+  const lines=[]; const styled=[]; let blank=true;
+  [...doc.getElementsByTagNameNS(W,"p")].forEach(p=>{
     const text=[...p.getElementsByTagNameNS(W,"t")].map(t=>t.textContent).join("").replace(/\u00a0/g," ");
-    const st=(ga(p.getElementsByTagNameNS(W,"pStyle")[0],"val")||"").toLowerCase().replace(/[_-]/g," ");
-    const ind=p.getElementsByTagNameNS(W,"ind")[0];
-    const left=(parseInt(ga(ind,"left")||ga(ind,"start")||"0",10)||0)/20;
-    const jc=(ga(p.getElementsByTagNameNS(W,"jc")[0],"val")||"");
+    const pPr=first(p,"pPr"); const sid=ga(first(pPr,"pStyle"),"val");
+    const ind=first(pPr,"ind"), sp=first(pPr,"spacing");
+    const left=ind&&(ga(ind,"left")||ga(ind,"start"))!=null?tw(ga(ind,"left")||ga(ind,"start")):(sget(sid,"left")||0);
+    const before=sp&&ga(sp,"before")!=null?tw(ga(sp,"before")):(sget(sid,"before")||0);
+    const jc=ga(first(pPr,"jc"),"val")||sget(sid,"jc")||"";
     if(!text.trim()){ blank=true; return; }
-    const s=styleMap[st]||styleMap[st.replace(/\s+/g,"")]; if(s) styled.push({t:s,x:text.trim()});
-    lines.push({x:jc==="right"||jc==="end"?400:left,text,gap:blank}); blank=false;
+    const k=kind(styles[sid]?styles[sid].name:sid); styled.push(k);
+    lines.push({x:jc==="right"||jc==="end"?432:jc==="center"?200:left,text,gap:blank||before>=6,para:true,k}); blank=false;
   });
-  if(styled.length>=lines.length*0.6&&styled.length) return styled;
-  const spread=new Set(lines.map(l=>Math.round(l.x/20))).size;
-  if(spread>=3) return layoutBlocks(lines);
-  return parseFountain(lines.map(l=>(l.gap?"\n":"")+l.text).join("\n"));
+  if(!lines.length) return [];
+  // a screenplay template (Final Draft, Word screenplay styles): trust the style names
+  if(styled.filter(Boolean).length>=lines.length*0.6){
+    const out=[]; lines.forEach(l=>{ const t=l.k||"action", x=l.text.replace(/\s+/g," ").trim(); out.push({t,x}); });
+    return out;
+  }
+  return layoutBlocks(lines);
 }
 
 /* ---------- storyboard ---------- */
