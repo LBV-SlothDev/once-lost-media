@@ -114,6 +114,7 @@ export function Footer({ onReplay }) {
       <div className="foot-in">
         <img src={asset("emblem.png")} alt="" width="56" height="47" />
         <div className="foot-txt">
+          <small className="foot-kicker">LiteSloth</small>
           <strong>Once Lost Media</strong>
           <span>© {new Date().getFullYear()} Once Lost Media. All rights reserved.</span>
         </div>
