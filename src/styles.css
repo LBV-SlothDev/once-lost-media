@@ -52,6 +52,9 @@ h1, h2, h3 { font-family: var(--f-display); font-weight: 600; letter-spacing: .0
 .nav-in { max-width: 1240px; margin: 0 auto; height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .nav-brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none !important; }
 .nav-brand img { width: 38px; height: auto; }
+.nav-wordmark { display: flex; flex-direction: column; gap: 4px; }
+.nav-kicker { font: 700 9px/1 var(--f-display); letter-spacing: .34em; text-transform: uppercase; color: var(--gold); opacity: .9; }
+@media (max-width: 560px) { .nav-kicker { display: none; } }
 .nav-brand span { font: 600 17px/1 var(--f-display); letter-spacing: .08em; text-transform: uppercase; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .nav-right { display: flex; align-items: center; gap: 6px; }
 .nav-links { display: flex; gap: 4px; }
