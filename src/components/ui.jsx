@@ -11,7 +11,10 @@ export function Nav({ onReplay }) {
       <div className="nav-in">
         <Link to="/" className="nav-brand" aria-label="Once Lost Media home">
           <img src={asset("emblem.png")} alt="" width="38" height="32" />
-          <span>Once Lost Media</span>
+          <div className="nav-wordmark">
+            <small className="nav-kicker">LiteSloth</small>
+            <span>Once Lost Media</span>
+          </div>
         </Link>
         <div className="nav-right">
           <nav className="nav-links" aria-label="Main">
