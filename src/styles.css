@@ -241,6 +241,7 @@ textarea.input { resize: vertical; }
 .foot-txt { display: grid; flex: 1; min-width: 200px; }
 .foot-txt strong { font-family: var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--gold-hi); }
 .foot-txt span { font-size: 13px; color: var(--muted); }
+.foot-kicker { font: 700 9px/1 var(--f-display); letter-spacing: .34em; text-transform: uppercase; color: var(--gold); opacity: .9; margin-bottom: 5px; }
 .foot-links { display: flex; gap: 18px; align-items: center; font-size: 14px; }
 .demo-chip { position: fixed; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: var(--gold); color: #1b1407; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; }
 .backlot-host { min-height: calc(100vh - var(--nav-h)); }
